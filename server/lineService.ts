@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { CustomerProfile } from '../../src/types';
+import { CustomerProfile } from '../src/types';
 
 /**
  * Verifies that incoming webhook requests originate from LINE servers

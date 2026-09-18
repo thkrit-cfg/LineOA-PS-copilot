@@ -1,5 +1,5 @@
-import { CustomerProfile, GroceryProduct, LineStaffUser } from '../../src/types';
-import { INITIAL_CUSTOMERS, INITIAL_PRODUCTS, CURRENT_STAFF } from '../../src/data/mockGroceryDataLake';
+import { CustomerProfile, GroceryProduct, LineStaffUser } from '../src/types';
+import { INITIAL_CUSTOMERS, INITIAL_PRODUCTS, CURRENT_STAFF } from '../src/data/mockGroceryDataLake';
 
 // In-memory mock database store for production prototype
 class MockDatabase {
