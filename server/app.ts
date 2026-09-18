@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { mockDb } from './mockDb';
 import { verifyLineSignature, buildStaffProfileFlex } from './lineService';
 import { inboxStore } from './inboxStore';
+import { computeThreadPriority } from '../src/services/priorityEngine';
 
 /**
  * Shared Express application (API routes only).
@@ -172,10 +173,19 @@ export function createApp() {
       // Enrich with CRM segment/tier when a customer is matched
       const enriched = summaries.map(s => {
         const customer = s.customerCrmId ? mockDb.getCustomerById(s.customerCrmId) : undefined;
+        // Sprint 3: value-priority score (LTV + risk + recency)
+        const p = computeThreadPriority({
+          ltv: customer?.totalSpendLtv,
+          segment: customer?.rfmSegment,
+          tier: customer?.tier,
+          lastTs: s.lastTs,
+        });
         return {
           ...s,
           rfmSegment: customer?.rfmSegment,
           tier: customer?.tier,
+          priority: p.priority,
+          priorityFlags: p.flags,
         };
       });
       res.json({ data: enriched, total: enriched.length });

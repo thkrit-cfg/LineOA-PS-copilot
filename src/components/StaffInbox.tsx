@@ -21,6 +21,8 @@ import {
   Link2,
   Sparkles,
   Zap,
+  Flame,
+  Crown,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier, UpsellRecommendation } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
@@ -46,6 +48,8 @@ interface ThreadSummary {
   unread: number;
   rfmSegment?: string;
   tier?: CustomerTier;
+  priority?: number;
+  priorityFlags?: Array<'high_value' | 'at_risk'>;
 }
 interface ThreadDetail {
   lineUid: string;
@@ -282,6 +286,18 @@ export const StaffInbox: React.FC = () => {
   }, [draft, activeUid, sending, loadThreads]);
 
   const totalUnread = useMemo(() => threads.reduce((s, t) => s + (t.unread || 0), 0), [threads]);
+
+  // ---- Sprint 3: value-priority sort (LTV + risk + recency) -----------------
+  const sortedThreads = useMemo(
+    () =>
+      [...threads].sort((a, b) => {
+        const pa = a.priority ?? 0;
+        const pb = b.priority ?? 0;
+        if (pb !== pa) return pb - pa;
+        return b.lastTs - a.lastTs;
+      }),
+    [threads]
+  );
 
   // ---- Sprint 2: intent + next-best-action (last customer message) ---------
   const lastCustomerMsg = useMemo(() => {
@@ -581,6 +597,8 @@ export const StaffInbox: React.FC = () => {
               <Wifi className="w-3 h-3 text-emerald-400" />
             )}
             {totalUnread > 0 ? `${totalUnread} unread` : 'Up to date'}
+            <span className="text-slate-600">·</span>
+            <span className="text-slate-500">sorted by priority</span>
           </p>
         </div>
         <button
@@ -614,11 +632,17 @@ export const StaffInbox: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-800/60">
             <AnimatePresence>
-              {threads.map(t => (
+              {sortedThreads.map(t => {
+                const flags = t.priorityFlags || [];
+                const atRisk = flags.includes('at_risk');
+                const highValue = flags.includes('high_value');
+                return (
                 <button
                   key={t.lineUid}
                   onClick={() => openThread(t.lineUid)}
-                  className="w-full text-left px-4 py-3 hover:bg-slate-800/40 flex items-center gap-3"
+                  className={`w-full text-left px-4 py-3 hover:bg-slate-800/40 flex items-center gap-3 ${
+                    atRisk ? 'border-l-2 border-l-red-500/70 bg-red-500/[0.04]' : ''
+                  }`}
                 >
                   <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shrink-0 relative overflow-hidden">
                     {t.avatarUrl ? (
@@ -635,7 +659,21 @@ export const StaffInbox: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-sm text-white truncate">{t.displayName}</span>
-                      <span className="text-[10px] text-slate-500 shrink-0">{fmtTime(t.lastTs)}</span>
+                      <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1.5">
+                        {typeof t.priority === 'number' && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded font-black ${
+                              t.priority >= 60
+                                ? 'bg-amber-500/15 text-amber-300 border border-amber-400/40'
+                                : 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                            }`}
+                            title="Priority score"
+                          >
+                            {t.priority}
+                          </span>
+                        )}
+                        {fmtTime(t.lastTs)}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <span className="text-xs text-slate-400 truncate">{t.lastText || '—'}</span>
@@ -645,18 +683,33 @@ export const StaffInbox: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    {t.rfmSegment && (
-                      <span
-                        className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                          SEGMENT_BADGE[t.rfmSegment] || 'bg-slate-500/15 text-slate-300 border-slate-500/30'
-                        }`}
-                      >
-                        {t.rfmSegment}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {highValue && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-amber-500/15 text-amber-300 border-amber-400/40">
+                          <Crown className="w-2.5 h-2.5" />
+                          High value
+                        </span>
+                      )}
+                      {atRisk && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-red-500/15 text-red-300 border-red-400/40">
+                          <Flame className="w-2.5 h-2.5" />
+                          At risk
+                        </span>
+                      )}
+                      {t.rfmSegment && (
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                            SEGMENT_BADGE[t.rfmSegment] || 'bg-slate-500/15 text-slate-300 border-slate-500/30'
+                          }`}
+                        >
+                          {t.rfmSegment}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </div>
         )}

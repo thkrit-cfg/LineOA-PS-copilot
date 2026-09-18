@@ -38,6 +38,9 @@ export interface ThreadSummary {
   lastText: string;
   lastTs: number;
   unread: number;
+  /** Sprint 3: value-priority score (0–100) + flags — enriched by the API. */
+  priority?: number;
+  priorityFlags?: Array<'high_value' | 'at_risk'>;
 }
 
 interface InboxStore {
