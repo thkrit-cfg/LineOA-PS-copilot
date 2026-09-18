@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { mockDb } from './mockDb';
 import { verifyLineSignature, buildStaffProfileFlex } from './lineService';
+import { inboxStore } from './inboxStore';
 
 /**
  * Shared Express application (API routes only).
@@ -155,6 +156,107 @@ export function createApp() {
   });
 
   // ==========================================
+  // Staff Inbox API (pure-human middleware PWA)
+  // ==========================================
+  app.get('/api/inbox/health', async (_req, res) => {
+    try {
+      res.json(await inboxStore.health());
+    } catch (err: any) {
+      res.status(500).json({ error: 'inbox health failed', message: err?.message });
+    }
+  });
+
+  app.get('/api/inbox/threads', async (_req, res) => {
+    try {
+      const summaries = await inboxStore.listThreads();
+      // Enrich with CRM segment/tier when a customer is matched
+      const enriched = summaries.map(s => {
+        const customer = s.customerCrmId ? mockDb.getCustomerById(s.customerCrmId) : undefined;
+        return {
+          ...s,
+          rfmSegment: customer?.rfmSegment,
+          tier: customer?.tier,
+        };
+      });
+      res.json({ data: enriched, total: enriched.length });
+    } catch (err: any) {
+      res.status(500).json({ error: 'failed to list threads', message: err?.message });
+    }
+  });
+
+  app.get('/api/inbox/threads/:lineUid', async (req, res) => {
+    try {
+      const lineUid = String(req.params.lineUid);
+      const thread = await inboxStore.getThread(lineUid);
+      if (!thread) {
+        return res.status(404).json({ error: 'Thread not found' });
+      }
+      const customer = thread.customerCrmId
+        ? mockDb.getCustomerById(thread.customerCrmId) || null
+        : null;
+      res.json({
+        data: {
+          lineUid: thread.lineUid,
+          customerCrmId: thread.customerCrmId,
+          displayName: thread.displayName,
+          isLineFriend: thread.isLineFriend,
+          messages: thread.messages,
+          unread: 0,
+          customer,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'failed to read thread', message: err?.message });
+    }
+  });
+
+  app.post('/api/inbox/threads/:lineUid/reply', async (req: Request, res: Response) => {
+    const { text } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'text is required' });
+    }
+    const lineUid = String(req.params.lineUid);
+    const channelToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+    let realLineSuccess = false;
+    let lineApiResponse: any = null;
+
+    if (channelToken && lineUid) {
+      try {
+        const response = await fetch('https://api.line.me/v2/bot/message/push', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${channelToken}`,
+          },
+          body: JSON.stringify({
+            to: lineUid,
+            messages: [{ type: 'text', text: text.trim() }],
+          }),
+        });
+        lineApiResponse = await response.json().catch(() => ({}));
+        realLineSuccess = response.ok;
+      } catch (err: any) {
+        console.error('Error pushing staff reply to LINE:', err?.message);
+      }
+    }
+
+    // Record the staff message in the thread (best-effort)
+    try {
+      await inboxStore.appendStaffMessage(lineUid, text.trim());
+    } catch (err: any) {
+      console.error('Error recording staff reply in thread:', err?.message);
+    }
+
+    res.json({
+      success: true,
+      realLinePushAttempted: Boolean(channelToken),
+      realLineSuccess,
+      lineApiResponse,
+    });
+  });
+
+  // ==========================================
   // Official LINE Webhook Handler
   // Supports HMAC-SHA256 signature verification and /crm commands
   // ==========================================
@@ -178,6 +280,23 @@ export function createApp() {
       if (event.type === 'message' && event.message?.type === 'text') {
         const text = event.message.text.trim();
         const replyToken = event.replyToken;
+        const lineUid = event.source?.userId;
+
+        // Capture EVERY customer text message into the staff inbox thread
+        if (lineUid && text) {
+          try {
+            const customer = mockDb.getCustomerByLineUid(lineUid);
+            await inboxStore.upsertCustomerMessage(
+              lineUid,
+              text,
+              customer?.lineDisplayName || customer?.fullName || 'LINE User',
+              customer?.crmCustomerId || null,
+              Boolean(customer?.isLineFriend)
+            );
+          } catch (err: any) {
+            console.error('Failed to capture message into inbox thread:', err?.message);
+          }
+        }
 
         // Frontline staff /crm commands
         if (text.startsWith('/crm')) {

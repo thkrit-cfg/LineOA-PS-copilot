@@ -1,0 +1,20 @@
+{
+  "name": "LINE OA Staff Inbox",
+  "short_name": "Staff Inbox",
+  "description": "Pure-human staff helpdesk for the LINE OA grocery account. Read customer chats and reply, with CRM context.",
+  "start_url": "/staff",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f17",
+  "theme_color": "#0d131f",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
