@@ -1,4 +1,4 @@
-import { createApp } from '../server/app';
+import { createApp } from './_lib/app';
 
 // Vercel serverless function entry.
 // The `@vercel/node` build bundles this file; default-exporting the Express
