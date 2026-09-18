@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Wifi,
   WifiOff,
+  Link2,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
@@ -99,39 +100,57 @@ const fmtBaht = (n: number) => `฿${n.toLocaleString()}`;
 
 // ---- CRM chip row (compact, shown in thread header) -------------------------
 const CrmStrip: React.FC<{ customer: CustomerProfile }> = ({ customer }) => (
-  <div className="px-3 pb-2.5 pt-1 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-    <span
-      className={`shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold border ${
-        SEGMENT_BADGE[customer.rfmSegment] || 'bg-slate-500/15 text-slate-300 border-slate-500/30'
-      }`}
-    >
-      {customer.rfmSegment}
-    </span>
-    <span
-      className={`shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold border ${
-        TIER_BADGE[customer.tier] || TIER_BADGE.MEMBER
-      }`}
-    >
-      {TIER_LABEL[customer.tier] || customer.tier}
-    </span>
-    <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-300 flex items-center gap-1">
-      <CreditCard className="w-3 h-3 text-slate-500" />
-      {customer.the1CardNo}
-    </span>
-    <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-300 flex items-center gap-1">
-      <TrendingUp className="w-3 h-3 text-emerald-400" />
-      LTV {fmtBaht(customer.totalSpendLtv)}
-    </span>
-    <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-300 flex items-center gap-1">
-      <ShoppingBag className="w-3 h-3 text-slate-500" />
-      AOV {fmtBaht(customer.aov)}
-    </span>
-    {customer.topCategories?.length > 0 && (
-      <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-400 flex items-center gap-1">
-        <Layers className="w-3 h-3 text-slate-500" />
-        {customer.topCategories.slice(0, 2).join(', ')}
+  <div className="px-3 pb-2.5 pt-1 space-y-1.5 shrink-0">
+    {/* Row 1: identity — segment, tier, The 1 card */}
+    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      <span
+        className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+          SEGMENT_BADGE[customer.rfmSegment] || 'bg-slate-500/15 text-slate-300 border-slate-500/30'
+        }`}
+      >
+        {customer.rfmSegment}
       </span>
-    )}
+      <span
+        className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-black tracking-wider border ${
+          TIER_BADGE[customer.tier] || TIER_BADGE.MEMBER
+        }`}
+      >
+        {TIER_LABEL[customer.tier] || customer.tier}
+      </span>
+      <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-300 flex items-center gap-1">
+        <CreditCard className="w-3 h-3 text-slate-500" />
+        <span className="font-mono">{customer.the1CardNo}</span>
+      </span>
+    </div>
+    {/* Row 2: key metrics */}
+    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar text-[10px] text-slate-400">
+      <span className="shrink-0 flex items-center gap-1">
+        <TrendingUp className="w-3 h-3 text-emerald-400" />
+        <span className="text-slate-500">LTV</span>
+        <span className="font-bold text-white">{fmtBaht(customer.totalSpendLtv)}</span>
+      </span>
+      <span className="shrink-0 flex items-center gap-1">
+        <ShoppingBag className="w-3 h-3 text-amber-400" />
+        <span className="text-slate-500">AOV</span>
+        <span className="font-bold text-white">{fmtBaht(customer.aov)}</span>
+      </span>
+      <span className="shrink-0 flex items-center gap-1">
+        <span className="text-slate-500">Orders</span>
+        <span className="font-bold text-white">{customer.orderCount}</span>
+      </span>
+      <span className="shrink-0 flex items-center gap-1">
+        <span className="text-slate-500">Last</span>
+        <span className={`font-bold ${customer.daysSinceLastPurchase > 21 ? 'text-red-400' : 'text-white'}`}>
+          {customer.daysSinceLastPurchase}d
+        </span>
+      </span>
+      {customer.topCategories?.length > 0 && (
+        <span className="shrink-0 flex items-center gap-1 text-slate-500">
+          <Layers className="w-3 h-3" />
+          {customer.topCategories.slice(0, 2).join(', ')}
+        </span>
+      )}
+    </div>
   </div>
 );
 
@@ -148,6 +167,9 @@ export const StaffInbox: React.FC = () => {
 
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [crmOpen, setCrmOpen] = useState(false);
+  const [crmMode, setCrmMode] = useState<'view' | 'link'>('view');
+  const [linking, setLinking] = useState(false);
+  const [linkState, setLinkState] = useState<{ ok: boolean; msg?: string } | null>(null);
 
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -194,6 +216,9 @@ export const StaffInbox: React.FC = () => {
     setActiveUid(lineUid);
     setDetailLoading(true);
     setSendState(null);
+    setCrmOpen(false);
+    setCrmMode('view');
+    setLinkState(null);
     try {
       const r = await fetch(`/api/inbox/threads/${lineUid}`);
       const j = await r.json();
@@ -253,6 +278,46 @@ export const StaffInbox: React.FC = () => {
 
   const totalUnread = useMemo(() => threads.reduce((s, t) => s + (t.unread || 0), 0), [threads]);
 
+  // Link a CRM customer to the active LINE account (maps their lineUid).
+  const linkCustomer = useCallback(
+    async (crmCustomerId: string) => {
+      if (!activeUid || linking) return;
+      setLinking(true);
+      setLinkState(null);
+      try {
+        const r = await fetch(`/api/inbox/threads/${activeUid}/link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ crmCustomerId }),
+        });
+        const j = await r.json();
+        if (j?.success) {
+          setLinkState({ ok: true, msg: 'Customer linked to this LINE account' });
+          setCrmOpen(false);
+          // refresh thread detail so CRM chips + button update
+          await openThread(activeUid);
+          loadThreads(true);
+        } else {
+          setLinkState({ ok: false, msg: j?.error || 'Link failed' });
+        }
+      } catch (e: any) {
+        setLinkState({ ok: false, msg: e?.message || 'Network error' });
+      } finally {
+        setLinking(false);
+      }
+    },
+    [activeUid, linking, openThread, loadThreads]
+  );
+
+  const openCrm = useCallback(
+    (mode: 'view' | 'link') => {
+      setCrmMode(mode);
+      setLinkState(null);
+      setCrmOpen(true);
+    },
+    []
+  );
+
   // ---- Thread detail view ----------------------------------------------------
   if (activeUid && detail) {
     const c = detail.customer;
@@ -282,17 +347,31 @@ export const StaffInbox: React.FC = () => {
               <div className="font-bold text-sm text-white truncate">{detail.displayName}</div>
               <div className="text-[10px] text-slate-500 font-mono truncate">{detail.lineUid}</div>
             </div>
-            {c && (
+            {c ? (
               <button
-                onClick={() => setCrmOpen(true)}
+                onClick={() => openCrm('view')}
                 className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold flex items-center gap-1"
               >
                 <Search className="w-3.5 h-3.5" />
                 CRM
               </button>
+            ) : (
+              <button
+                onClick={() => openCrm('link')}
+                className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center gap-1"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                Link CRM
+              </button>
             )}
           </div>
           {c && <CrmStrip customer={c} />}
+          {!c && (
+            <div className="px-3 pb-2.5 flex items-center gap-1.5 text-[10px] text-amber-300/80 shrink-0">
+              <Link2 className="w-3 h-3" />
+              Not linked to CRM — tap “Link CRM” to find this customer by phone or name.
+            </div>
+          )}
         </div>
 
         {/* Messages */}
@@ -340,6 +419,16 @@ export const StaffInbox: React.FC = () => {
 
         {/* Composer */}
         <div className="border-t border-slate-800 bg-[#0d131f] px-3 py-2.5 shrink-0">
+          {linkState && (
+            <div
+              className={`text-[11px] mb-2 flex items-center gap-1.5 ${
+                linkState.ok ? 'text-emerald-400' : 'text-red-400'
+              }`}
+            >
+              {linkState.ok ? <Link2 className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+              {linkState.msg}
+            </div>
+          )}
           {sendState && (
             <div
               className={`text-[11px] mb-2 flex items-center gap-1.5 ${
@@ -386,7 +475,12 @@ export const StaffInbox: React.FC = () => {
           open={crmOpen}
           onClose={() => setCrmOpen(false)}
           customers={customers}
-          onOpenCustomer={() => {}}
+          onOpenCustomer={crmMode === 'link' ? linkCustomer : undefined}
+          activeLine={
+            crmMode === 'link'
+              ? { lineUid: activeUid, displayName: detail.displayName }
+              : null
+          }
         />
       </div>
     );

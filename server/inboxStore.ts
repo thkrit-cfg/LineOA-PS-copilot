@@ -50,6 +50,11 @@ interface InboxStore {
     avatarUrl?: string
   ): Promise<Thread | null>;
   appendStaffMessage(lineUid: string, text: string): Promise<Thread | null>;
+  linkCrm(
+    lineUid: string,
+    crmCustomerId: string,
+    identity?: { displayName?: string; avatarUrl?: string }
+  ): Promise<Thread | null>;
   listThreads(): Promise<ThreadSummary[]>;
   getThread(lineUid: string): Promise<Thread | null>;
   health(): Promise<{ store: 'upstash' | 'memory'; upstashReachable: boolean | null; threads: number }>;
@@ -184,6 +189,14 @@ export const inboxStore: InboxStore = {
     return upsertThread(lineUid, t => {
       t.messages.push({ id: newMessageId(), from: 'staff', text, ts: Date.now() });
       t.lastTs = Date.now();
+    });
+  },
+
+  async linkCrm(lineUid, crmCustomerId, identity) {
+    return upsertThread(lineUid, t => {
+      t.customerCrmId = crmCustomerId;
+      if (identity?.displayName) t.displayName = identity.displayName;
+      if (identity?.avatarUrl) t.avatarUrl = identity.avatarUrl;
     });
   },
 

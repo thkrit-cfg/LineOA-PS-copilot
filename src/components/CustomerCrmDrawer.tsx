@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   ArrowLeft,
   Sparkles,
+  Link2,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier } from '../types';
 
@@ -31,6 +32,11 @@ interface CustomerCrmDrawerProps {
   onClose: () => void;
   customers: CustomerProfile[];
   onOpenCustomer?: (crmCustomerId: string) => void;
+  /**
+   * When set, the drawer is in "link" mode: the primary action links the
+   * chosen customer's CRM record to this LINE account (maps their lineUid).
+   */
+  activeLine?: { lineUid: string; displayName: string } | null;
 }
 
 // ---- Visual mapping helpers -------------------------------------------------
@@ -174,6 +180,7 @@ export const CustomerCrmDrawer: React.FC<CustomerCrmDrawerProps> = ({
   onClose,
   customers,
   onOpenCustomer,
+  activeLine,
 }) => {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -247,7 +254,7 @@ export const CustomerCrmDrawer: React.FC<CustomerCrmDrawerProps> = ({
         initial={{ y: '100%' }}
         animate={open ? { y: 0 } : { y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[61] bg-[#0d131f] border-t border-x border-slate-800 rounded-t-3xl shadow-2xl flex flex-col max-h-[92vh]"
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[61] bg-[#0d131f] border-t border-x border-slate-800 rounded-t-3xl shadow-2xl flex flex-col max-h-[55vh]"
       >
         {/* Grab handle */}
         <div className="pt-2.5 pb-1 flex justify-center shrink-0">
@@ -261,9 +268,15 @@ export const CustomerCrmDrawer: React.FC<CustomerCrmDrawerProps> = ({
               <Search className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="font-extrabold text-white text-sm leading-none">Customer CRM Lookup</h3>
+              <h3 className="font-extrabold text-white text-sm leading-none">
+                {activeLine ? 'Link LINE Account to CRM' : 'Customer CRM Lookup'}
+              </h3>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                {selected ? 'Customer profile' : `${results.length} of ${customers.length} customers`}
+                {activeLine
+                  ? `Link a customer to ${activeLine.displayName} (${activeLine.lineUid.slice(0, 8)}…)`
+                  : selected
+                    ? 'Customer profile'
+                    : `${results.length} of ${customers.length} customers`}
               </p>
             </div>
           </div>
@@ -564,13 +577,23 @@ export const CustomerCrmDrawer: React.FC<CustomerCrmDrawerProps> = ({
         {/* Action bar (detail view only) */}
         {selected && (
           <div className="p-3 border-t border-slate-800 bg-[#0d131f] shrink-0">
-            <button
-              onClick={handleSetActive}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              Set as Active Customer
-            </button>
+            {activeLine ? (
+              <button
+                onClick={handleSetActive}
+                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                <Link2 className="w-4 h-4" />
+                Link to {activeLine.displayName}
+              </button>
+            ) : (
+              <button
+                onClick={handleSetActive}
+                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Set as Active Customer
+              </button>
+            )}
           </div>
         )}
       </motion.div>

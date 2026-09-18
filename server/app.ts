@@ -257,6 +257,33 @@ export function createApp() {
     });
   });
 
+  // Link an (unmapped) thread's LINE UID to a CRM customer — used when staff
+  // finds the customer by phone/name and links them to this LINE account.
+  app.post('/api/inbox/threads/:lineUid/link', async (req: Request, res: Response) => {
+    const { crmCustomerId } = req.body || {};
+    if (!crmCustomerId || typeof crmCustomerId !== 'string') {
+      return res.status(400).json({ error: 'crmCustomerId is required' });
+    }
+    const lineUid = String(req.params.lineUid);
+    const customer = mockDb.getCustomerById(crmCustomerId);
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    const existing = await inboxStore.getThread(lineUid);
+    // Map the customer's LINE UID in the CRM so future messages auto-match.
+    mockDb.mapLineUid(
+      crmCustomerId,
+      lineUid,
+      existing?.displayName || customer.lineDisplayName || customer.fullName
+    );
+    // Link the thread to the customer + refresh identity.
+    const thread = await inboxStore.linkCrm(lineUid, crmCustomerId, {
+      displayName: existing?.displayName || customer.lineDisplayName || customer.fullName,
+      avatarUrl: existing?.avatarUrl,
+    });
+    res.json({ success: true, thread });
+  });
+
   // ==========================================
   // LINE Profile API — fetch a customer's real LINE display name + photo.
   // 1-on-1 webhooks only carry the userId, so we look the profile up here.
