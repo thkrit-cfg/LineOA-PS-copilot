@@ -1,15 +1,27 @@
 /**
  * Persistent per-customer thread store for the staff inbox.
  *
- * Primary backend: Upstash Redis via its REST API (plain fetch — no SDK,
- * so it bundles cleanly into the single-file esbuild CJS output).
- * Fallback: in-memory Map (resets per serverless invocation — fine for
- * local dev and degraded mode when UPSTASH_* env vars are absent).
+ * Primary backend: Neon (serverless Postgres) via @neondatabase/serverless
+ * (pure-JS driver — bundles cleanly into the esbuild CJS API output).
+ * Fallback: in-memory Map (resets per serverless invocation — fine for local
+ * dev and degraded mode when DATABASE_URL is absent).
  *
- * Keys:
- *   inbox:thread:{lineUid}  -> JSON Thread
- *   inbox:index             -> JSON ThreadSummary[]
+ * Schema (auto-created on first use):
+ *   inbox_threads(
+ *     line_uid TEXT PRIMARY KEY,
+ *     customer_crm_id TEXT,
+ *     display_name TEXT NOT NULL DEFAULT 'LINE User',
+ *     avatar_url TEXT,
+ *     is_line_friend BOOLEAN NOT NULL DEFAULT FALSE,
+ *     messages JSONB NOT NULL DEFAULT '[]',
+ *     unread INTEGER NOT NULL DEFAULT 0,
+ *     last_ts BIGINT NOT NULL DEFAULT 0,
+ *     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+ *   )
+ *
+ * Each customer's full chat history lives in the `messages` JSONB column.
  */
+import { neon } from '@neondatabase/serverless';
 
 export interface InboxMessage {
   id: string;
@@ -60,43 +72,67 @@ interface InboxStore {
   ): Promise<Thread | null>;
   listThreads(): Promise<ThreadSummary[]>;
   getThread(lineUid: string): Promise<Thread | null>;
-  health(): Promise<{ store: 'upstash' | 'memory'; upstashReachable: boolean | null; threads: number }>;
+  health(): Promise<{ store: 'neon' | 'memory'; reachable: boolean | null; threads: number }>;
 }
 
-const THREAD_KEY = (uid: string) => `inbox:thread:${uid}`;
-const INDEX_KEY = 'inbox:index';
-
-// Vercel KV (preferred) or raw Upstash REST. Both expose the same REST API.
-const upstashUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const upstashToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const useUpstash = Boolean(upstashUrl && upstashToken);
+// Neon connection string (Vercel env var DATABASE_URL, or NEON_DATABASE_URL).
+const neonUrl = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+const useNeon = Boolean(neonUrl);
+const sql = useNeon ? neon(neonUrl!) : null;
 
 // ---- in-memory fallback ----------------------------------------------------
 const memThreads = new Map<string, Thread>();
 
-function memIndex(): ThreadSummary[] {
-  return Array.from(memThreads.values()).map(summarize).sort((a, b) => a.lastTs - b.lastTs);
+// ---- neon helpers ----------------------------------------------------------
+let schemaReady: Promise<void> | null = null;
+function ensureSchema(): Promise<void> {
+  if (!useNeon || !sql) return Promise.resolve();
+  if (!schemaReady) {
+    schemaReady = sql`
+      CREATE TABLE IF NOT EXISTS inbox_threads (
+        line_uid TEXT PRIMARY KEY,
+        customer_crm_id TEXT,
+        display_name TEXT NOT NULL DEFAULT 'LINE User',
+        avatar_url TEXT,
+        is_line_friend BOOLEAN NOT NULL DEFAULT FALSE,
+        messages JSONB NOT NULL DEFAULT '[]',
+        unread INTEGER NOT NULL DEFAULT 0,
+        last_ts BIGINT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `
+      .then(() => undefined)
+      .catch(err => {
+        schemaReady = null; // allow retry on transient failure
+        throw err;
+      });
+  }
+  return schemaReady;
 }
 
-// ---- upstash helpers -------------------------------------------------------
-async function redisGet(key: string): Promise<string | null> {
-  const res = await fetch(upstashUrl!, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${upstashToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: ['GET', key] }),
-  });
-  if (!res.ok) throw new Error(`Upstash GET failed: ${res.status}`);
-  const json: any = await res.json();
-  return typeof json.result === 'string' ? json.result : null;
+function rowToThread(r: any): Thread {
+  return {
+    lineUid: r.line_uid,
+    customerCrmId: r.customer_crm_id ?? null,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url ?? undefined,
+    isLineFriend: Boolean(r.is_line_friend),
+    messages: Array.isArray(r.messages) ? (r.messages as InboxMessage[]) : [],
+    unread: Number(r.unread),
+    lastTs: Number(r.last_ts),
+  };
 }
 
-async function redisSet(key: string, value: string): Promise<void> {
-  const res = await fetch(upstashUrl!, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${upstashToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: ['SET', key, value] }),
-  });
-  if (!res.ok) throw new Error(`Upstash SET failed: ${res.status}`);
+function newThread(lineUid: string): Thread {
+  return {
+    lineUid,
+    customerCrmId: null,
+    displayName: 'LINE User',
+    isLineFriend: false,
+    messages: [],
+    unread: 0,
+    lastTs: 0,
+  };
 }
 
 // ---- shared logic ----------------------------------------------------------
@@ -122,56 +158,35 @@ async function upsertThread(
   lineUid: string,
   mutate: (t: Thread) => void
 ): Promise<Thread | null> {
-  let thread: Thread | null = null;
-  if (useUpstash) {
-    const raw = await redisGet(THREAD_KEY(lineUid));
-    thread = raw ? (JSON.parse(raw) as Thread) : null;
-  } else {
-    thread = memThreads.get(lineUid) || null;
+  if (useNeon && sql) {
+    await ensureSchema();
+    const rows = await sql`SELECT * FROM inbox_threads WHERE line_uid = ${lineUid}`;
+    const thread = rows.length ? rowToThread(rows[0]) : newThread(lineUid);
+    mutate(thread);
+    await sql`
+      INSERT INTO inbox_threads
+        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, updated_at)
+      VALUES
+        (${thread.lineUid}, ${thread.customerCrmId}, ${thread.displayName}, ${thread.avatarUrl ?? null},
+         ${thread.isLineFriend}, ${JSON.stringify(thread.messages)}::jsonb, ${thread.unread}, ${thread.lastTs}, now())
+      ON CONFLICT (line_uid) DO UPDATE SET
+        customer_crm_id = EXCLUDED.customer_crm_id,
+        display_name = EXCLUDED.display_name,
+        avatar_url = COALESCE(EXCLUDED.avatar_url, inbox_threads.avatar_url),
+        is_line_friend = EXCLUDED.is_line_friend,
+        messages = EXCLUDED.messages,
+        unread = EXCLUDED.unread,
+        last_ts = EXCLUDED.last_ts,
+        updated_at = now()
+    `;
+    return thread;
   }
 
-  if (!thread) {
-    thread = {
-      lineUid,
-      customerCrmId: null,
-      displayName: 'LINE User',
-      isLineFriend: false,
-      messages: [],
-      unread: 0,
-      lastTs: 0,
-    };
-  }
+  // in-memory fallback
+  const thread = memThreads.get(lineUid) || newThread(lineUid);
   mutate(thread);
-
-  if (useUpstash) {
-    await redisSet(THREAD_KEY(lineUid), JSON.stringify(thread));
-  } else {
-    memThreads.set(lineUid, thread);
-  }
-  await refreshIndex();
+  memThreads.set(lineUid, thread);
   return thread;
-}
-
-async function refreshIndex(): Promise<void> {
-  let summaries: ThreadSummary[];
-  if (useUpstash) {
-    // Rebuild index from all known thread keys we can cheaply derive:
-    // we keep a lightweight set of uids in the index itself.
-    const rawIdx = await redisGet(INDEX_KEY);
-    const idx: ThreadSummary[] = rawIdx ? JSON.parse(rawIdx) : [];
-    const uidSet = new Set(idx.map(s => s.lineUid));
-    // fetch each thread to get fresh summaries (inbox scale is small)
-    const fresh: ThreadSummary[] = [];
-    for (const uid of uidSet) {
-      const raw = await redisGet(THREAD_KEY(uid));
-      if (raw) fresh.push(summarize(JSON.parse(raw) as Thread));
-    }
-    summaries = fresh.sort((a, b) => a.lastTs - b.lastTs);
-    await redisSet(INDEX_KEY, JSON.stringify(summaries));
-  } else {
-    summaries = memIndex();
-  }
-  void summaries;
 }
 
 // ---- public store ----------------------------------------------------------
@@ -204,53 +219,46 @@ export const inboxStore: InboxStore = {
   },
 
   async listThreads() {
-    if (useUpstash) {
-      const raw = await redisGet(INDEX_KEY);
-      const idx: ThreadSummary[] = raw ? JSON.parse(raw) : [];
-      return idx.sort((a, b) => b.lastTs - a.lastTs);
+    if (useNeon && sql) {
+      await ensureSchema();
+      const rows = await sql`SELECT * FROM inbox_threads ORDER BY last_ts DESC`;
+      return rows.map(rowToThread).map(summarize).sort((a, b) => b.lastTs - a.lastTs);
     }
     return Array.from(memThreads.values()).map(summarize).sort((a, b) => b.lastTs - a.lastTs);
   },
 
   async getThread(lineUid) {
     let thread: Thread | null = null;
-    if (useUpstash) {
-      const raw = await redisGet(THREAD_KEY(lineUid));
-      thread = raw ? (JSON.parse(raw) as Thread) : null;
-    } else {
-      thread = memThreads.get(lineUid) || null;
+    if (useNeon && sql) {
+      await ensureSchema();
+      const rows = await sql`SELECT * FROM inbox_threads WHERE line_uid = ${lineUid}`;
+      thread = rows.length ? rowToThread(rows[0]) : null;
+      if (!thread) return null;
+      // Reading a thread clears its unread badge.
+      if (thread.unread > 0) {
+        thread.unread = 0;
+        await sql`UPDATE inbox_threads SET unread = 0 WHERE line_uid = ${lineUid}`;
+      }
+      return thread;
     }
+    thread = memThreads.get(lineUid) || null;
     if (!thread) return null;
-    // Reading a thread clears its unread badge.
     if (thread.unread > 0) {
       thread.unread = 0;
-      if (useUpstash) await redisSet(THREAD_KEY(lineUid), JSON.stringify(thread));
-      await refreshIndex();
     }
     return thread;
   },
 
   async health() {
-    let upstashReachable: boolean | null = null;
-    let count = 0;
-    if (useUpstash) {
+    if (useNeon && sql) {
       try {
-        const res = await fetch(upstashUrl!, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${upstashToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: ['PING'] }),
-        });
-        upstashReachable = res.ok;
-        if (res.ok) {
-          const raw = await redisGet(INDEX_KEY);
-          count = raw ? JSON.parse(raw).length : 0;
-        }
+        await ensureSchema();
+        const rows = await sql`SELECT count(*)::int AS c FROM inbox_threads`;
+        return { store: 'neon', reachable: true, threads: Number(rows[0].c) };
       } catch {
-        upstashReachable = false;
+        return { store: 'neon', reachable: false, threads: 0 };
       }
-    } else {
-      count = memThreads.size;
     }
-    return { store: useUpstash ? 'upstash' : 'memory', upstashReachable, threads: count };
+    return { store: 'memory', reachable: null, threads: memThreads.size };
   },
 };

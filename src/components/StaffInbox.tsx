@@ -205,7 +205,7 @@ export const StaffInbox: React.FC = () => {
     try {
       const res = await fetch('/api/inbox/health');
       const health = await res.json();
-      setOnline(health.store === 'upstash' ? health.upstashReachable !== false : true);
+      setOnline(health.store === 'neon' ? health.reachable !== false : true);
       const r = await fetch('/api/inbox/threads');
       const j = await r.json();
       setThreads(Array.isArray(j?.data) ? j.data : []);
