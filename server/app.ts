@@ -184,6 +184,7 @@ export function createApp() {
           ...s,
           rfmSegment: customer?.rfmSegment,
           tier: customer?.tier,
+          ltv: customer?.totalSpendLtv,
           priority: p.priority,
           priorityFlags: p.flags,
         };

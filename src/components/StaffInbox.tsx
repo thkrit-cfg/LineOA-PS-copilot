@@ -29,6 +29,7 @@ import { CustomerCrmDrawer } from './CustomerCrmDrawer';
 import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
+import { computeCustomerValue, CustomerValue } from '../services/attributionEngine';
 
 // ---- API types (mirror docs/inbox-api-contract.md) --------------------------
 interface InboxMessage {
@@ -48,6 +49,7 @@ interface ThreadSummary {
   unread: number;
   rfmSegment?: string;
   tier?: CustomerTier;
+  ltv?: number;
   priority?: number;
   priorityFlags?: Array<'high_value' | 'at_risk'>;
 }
@@ -288,16 +290,24 @@ export const StaffInbox: React.FC = () => {
   const totalUnread = useMemo(() => threads.reduce((s, t) => s + (t.unread || 0), 0), [threads]);
 
   // ---- Sprint 3: value-priority sort (LTV + risk + recency) -----------------
-  const sortedThreads = useMemo(
-    () =>
-      [...threads].sort((a, b) => {
+  const [sortMode, setSortMode] = useState<'priority' | 'top_value' | 'recent'>('priority');
+
+  const sortedThreads = useMemo(() => {
+    const arr = [...threads];
+    if (sortMode === 'top_value') {
+      arr.sort((a, b) => (b.ltv ?? 0) - (a.ltv ?? 0) || b.lastTs - a.lastTs);
+    } else if (sortMode === 'recent') {
+      arr.sort((a, b) => b.lastTs - a.lastTs);
+    } else {
+      arr.sort((a, b) => {
         const pa = a.priority ?? 0;
         const pb = b.priority ?? 0;
         if (pb !== pa) return pb - pa;
         return b.lastTs - a.lastTs;
-      }),
-    [threads]
-  );
+      });
+    }
+    return arr;
+  }, [threads, sortMode]);
 
   // ---- Sprint 2: intent + next-best-action (last customer message) ---------
   const lastCustomerMsg = useMemo(() => {
@@ -316,6 +326,12 @@ export const StaffInbox: React.FC = () => {
   const nba: NextBestAction | null = useMemo(
     () => (intentResult ? nextBestAction(intentResult.intent, detail?.customer ?? null) : null),
     [intentResult, detail?.customer]
+  );
+
+  // ---- Sprint 4: revenue attribution (value strip) --------------------------
+  const value: CustomerValue | null = useMemo(
+    () => (detail?.customer ? computeCustomerValue(detail.customer) : null),
+    [detail?.customer]
   );
 
   // ---- Sprint 1: in-chat copilot recs (mapped customers only) ---------------
@@ -422,6 +438,35 @@ export const StaffInbox: React.FC = () => {
             )}
           </div>
           {c && <CrmStrip customer={c} />}
+          {c && value && (
+            <div className="px-3 pb-2.5 pt-0.5 shrink-0">
+              <div className="rounded-xl bg-[#0b0f17] border border-slate-800 px-3 py-2 flex items-center gap-4 overflow-x-auto no-scrollbar">
+                <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                  LTV
+                  <span className="font-bold text-white">{fmtBaht(value.totalLtv)}</span>
+                </span>
+                <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1">
+                  <ShoppingBag className="w-3 h-3 text-amber-400" />
+                  Last order
+                  <span className="font-bold text-white">{fmtBaht(value.lastOrderValue)}</span>
+                </span>
+                <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1">
+                  <Layers className="w-3 h-3 text-blue-400" />
+                  30d
+                  <span className={`font-bold ${value.value30d > 0 ? 'text-emerald-300' : 'text-slate-400'}`}>
+                    {fmtBaht(value.value30d)}
+                  </span>
+                </span>
+                <span
+                  className="ml-auto text-[10px] shrink-0 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold"
+                  title="Estimated value of this conversation to protect"
+                >
+                  Conversation ≈ {fmtBaht(value.conversationValue)}
+                </span>
+              </div>
+            </div>
+          )}
           {c && recs.length > 0 && (
             <div className="px-3 pb-2.5 pt-0.5 shrink-0">
               <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 mb-1.5">
@@ -597,9 +642,28 @@ export const StaffInbox: React.FC = () => {
               <Wifi className="w-3 h-3 text-emerald-400" />
             )}
             {totalUnread > 0 ? `${totalUnread} unread` : 'Up to date'}
-            <span className="text-slate-600">·</span>
-            <span className="text-slate-500">sorted by priority</span>
           </p>
+        </div>
+        <div className="flex items-center rounded-lg bg-[#0b0f17] border border-slate-800 p-0.5">
+          {(
+            [
+              ['priority', 'Priority'],
+              ['top_value', 'Top value'],
+              ['recent', 'Recent'],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              onClick={() => setSortMode(mode)}
+              className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${
+                sortMode === mode
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <button
           onClick={() => loadThreads()}
