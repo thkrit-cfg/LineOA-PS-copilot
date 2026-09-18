@@ -199,6 +199,7 @@ export function createApp() {
           lineUid: thread.lineUid,
           customerCrmId: thread.customerCrmId,
           displayName: thread.displayName,
+          avatarUrl: thread.avatarUrl,
           isLineFriend: thread.isLineFriend,
           messages: thread.messages,
           unread: 0,
@@ -257,6 +258,27 @@ export function createApp() {
   });
 
   // ==========================================
+  // LINE Profile API — fetch a customer's real LINE display name + photo.
+  // 1-on-1 webhooks only carry the userId, so we look the profile up here.
+  // ==========================================
+  async function fetchLineProfile(lineUid: string, channelToken?: string): Promise<{ displayName?: string; avatarUrl?: string }> {
+    if (!channelToken) return {};
+    try {
+      const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUid}`, {
+        headers: { Authorization: `Bearer ${channelToken}` },
+      });
+      if (!res.ok) return {};
+      const p: any = await res.json();
+      return {
+        displayName: p.displayName || undefined,
+        avatarUrl: p.pictureUrl || undefined,
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  // ==========================================
   // Official LINE Webhook Handler
   // Supports HMAC-SHA256 signature verification and /crm commands
   // ==========================================
@@ -286,12 +308,16 @@ export function createApp() {
         if (lineUid && text) {
           try {
             const customer = mockDb.getCustomerByLineUid(lineUid);
+            // Fetch the customer's real LINE profile (name + photo) — the
+            // webhook itself only carries the userId.
+            const profile = await fetchLineProfile(lineUid, channelToken);
             await inboxStore.upsertCustomerMessage(
               lineUid,
               text,
-              customer?.lineDisplayName || customer?.fullName || 'LINE User',
+              profile.displayName || customer?.lineDisplayName || customer?.fullName || 'LINE User',
               customer?.crmCustomerId || null,
-              Boolean(customer?.isLineFriend)
+              Boolean(customer?.isLineFriend),
+              profile.avatarUrl || customer?.lineAvatarUrl
             );
           } catch (err: any) {
             console.error('Failed to capture message into inbox thread:', err?.message);

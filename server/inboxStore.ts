@@ -22,6 +22,7 @@ export interface Thread {
   lineUid: string;
   customerCrmId: string | null;
   displayName: string;
+  avatarUrl?: string;
   isLineFriend: boolean;
   messages: InboxMessage[];
   unread: number;
@@ -32,6 +33,7 @@ export interface ThreadSummary {
   lineUid: string;
   customerCrmId: string | null;
   displayName: string;
+  avatarUrl?: string;
   isLineFriend: boolean;
   lastText: string;
   lastTs: number;
@@ -44,7 +46,8 @@ interface InboxStore {
     text: string,
     displayName: string,
     customerCrmId: string | null,
-    isLineFriend: boolean
+    isLineFriend: boolean,
+    avatarUrl?: string
   ): Promise<Thread | null>;
   appendStaffMessage(lineUid: string, text: string): Promise<Thread | null>;
   listThreads(): Promise<ThreadSummary[]>;
@@ -95,6 +98,7 @@ function summarize(t: Thread): ThreadSummary {
     lineUid: t.lineUid,
     customerCrmId: t.customerCrmId,
     displayName: t.displayName,
+    avatarUrl: t.avatarUrl,
     isLineFriend: t.isLineFriend,
     lastText: last ? last.text : '',
     lastTs: t.lastTs,
@@ -164,10 +168,11 @@ async function refreshIndex(): Promise<void> {
 
 // ---- public store ----------------------------------------------------------
 export const inboxStore: InboxStore = {
-  async upsertCustomerMessage(lineUid, text, displayName, customerCrmId, isLineFriend) {
+  async upsertCustomerMessage(lineUid, text, displayName, customerCrmId, isLineFriend, avatarUrl) {
     return upsertThread(lineUid, t => {
       if (customerCrmId && !t.customerCrmId) t.customerCrmId = customerCrmId;
       if (displayName && t.displayName === 'LINE User') t.displayName = displayName;
+      if (avatarUrl && !t.avatarUrl) t.avatarUrl = avatarUrl;
       t.isLineFriend = isLineFriend || t.isLineFriend;
       t.messages.push({ id: newMessageId(), from: 'customer', text, ts: Date.now() });
       t.unread += 1;

@@ -196,7 +196,7 @@ export const INITIAL_CUSTOMERS: CustomerProfile[] = [
     email: 'nattaporn.w@gmail.com',
     tier: 'PLATINUM_VIP',
     preferredBranch: 'Tops Food Hall CentralWorld',
-    lineUid: 'U7c89f01234abcd5678ef90123456789a',
+    lineUid: 'Uc99950503ba1c47fc5e8c814e41a824c',
     lineDisplayName: 'Natta_BKK ✨',
     lineAvatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
     isLineFriend: true,

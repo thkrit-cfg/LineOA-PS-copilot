@@ -33,6 +33,7 @@ interface ThreadSummary {
   lineUid: string;
   customerCrmId: string | null;
   displayName: string;
+  avatarUrl?: string;
   isLineFriend: boolean;
   lastText: string;
   lastTs: number;
@@ -44,6 +45,7 @@ interface ThreadDetail {
   lineUid: string;
   customerCrmId: string | null;
   displayName: string;
+  avatarUrl?: string;
   isLineFriend: boolean;
   messages: InboxMessage[];
   unread: number;
@@ -269,8 +271,12 @@ export const StaffInbox: React.FC = () => {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shrink-0">
-              <User className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
+              {detail.avatarUrl ? (
+                <img src={detail.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-5 h-5 text-white" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm text-white truncate">{detail.displayName}</div>
@@ -442,8 +448,12 @@ export const StaffInbox: React.FC = () => {
                   onClick={() => openThread(t.lineUid)}
                   className="w-full text-left px-4 py-3 hover:bg-slate-800/40 flex items-center gap-3"
                 >
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shrink-0 relative">
-                    <User className="w-6 h-6 text-slate-300" />
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shrink-0 relative overflow-hidden">
+                    {t.avatarUrl ? (
+                      <img src={t.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-slate-300" />
+                    )}
                     {t.isLineFriend && (
                       <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
                         <ShieldCheck className="w-2.5 h-2.5 text-white" />
