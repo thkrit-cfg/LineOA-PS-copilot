@@ -19,9 +19,12 @@ import {
   Wifi,
   WifiOff,
   Link2,
+  Sparkles,
 } from 'lucide-react';
-import { CustomerProfile, CustomerTier } from '../types';
+import { CustomerProfile, CustomerTier, UpsellRecommendation } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
+import { RecCard } from './RecCard';
+import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 
 // ---- API types (mirror docs/inbox-api-contract.md) --------------------------
 interface InboxMessage {
@@ -278,6 +281,22 @@ export const StaffInbox: React.FC = () => {
 
   const totalUnread = useMemo(() => threads.reduce((s, t) => s + (t.unread || 0), 0), [threads]);
 
+  // ---- Sprint 1: in-chat copilot recs (mapped customers only) ---------------
+  const recs = useMemo(
+    () => (detail?.customer ? getPersonalizedRecommendations(detail.customer).slice(0, 3) : []),
+    [detail?.customer]
+  );
+
+  const insertRec = useCallback((rec: UpsellRecommendation) => {
+    const p = rec.product;
+    const msg =
+      `✨ Suggestion for you: ${p.nameEn} — ${fmtBaht(p.price)}\n` +
+      `💡 ${rec.reason}\n` +
+      `🏷️ ${rec.suggestedPromo}\n\n` +
+      `Reply "YES" and I'll add it to your next order!`;
+    setDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${msg}` : msg));
+  }, []);
+
   // Link a CRM customer to the active LINE account (maps their lineUid).
   const linkCustomer = useCallback(
     async (crmCustomerId: string) => {
@@ -366,6 +385,19 @@ export const StaffInbox: React.FC = () => {
             )}
           </div>
           {c && <CrmStrip customer={c} />}
+          {c && recs.length > 0 && (
+            <div className="px-3 pb-2.5 pt-0.5 shrink-0">
+              <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 mb-1.5">
+                <Sparkles className="w-3 h-3" />
+                Copilot picks — tap to insert
+              </div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {recs.map(rec => (
+                  <RecCard key={rec.product.sku} rec={rec} onInsert={insertRec} />
+                ))}
+              </div>
+            </div>
+          )}
           {!c && (
             <div className="px-3 pb-2.5 flex items-center gap-1.5 text-[10px] text-amber-300/80 shrink-0">
               <Link2 className="w-3 h-3" />
