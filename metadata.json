@@ -1,0 +1,6 @@
+{
+  "name": "LINE OA Grocery Operations & Personalization Hub",
+  "description": "Operations and store staff platform for selling grocery via LINE OA in Thailand. Features LINE UID to CRM customer mapping, Excel datalake POC, automated audience segmentation, personalized upsell/cross-sell engine, and real-time push campaign triggers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
