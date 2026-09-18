@@ -19,6 +19,10 @@
       "destination": "/api/index.ts"
     },
     {
+      "source": "/liff/staff",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
