@@ -25,6 +25,10 @@ export function createApp() {
   // ==========================================
   // Health & Diagnostic API
   // ==========================================
+  // Diagnostic: distinguish "not injected" (undefined) vs "empty" ("" ) vs "set"
+  const envState = (v: string | undefined) =>
+    v === undefined ? 'missing' : v === '' ? 'empty' : 'set';
+
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
@@ -34,6 +38,11 @@ export function createApp() {
         hasLineChannelAccessToken: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN),
         hasLineChannelSecret: Boolean(process.env.LINE_CHANNEL_SECRET),
         hasLiffId: Boolean(process.env.LIFF_ID),
+      },
+      envDetail: {
+        LINE_CHANNEL_ACCESS_TOKEN: envState(process.env.LINE_CHANNEL_ACCESS_TOKEN),
+        LINE_CHANNEL_SECRET: envState(process.env.LINE_CHANNEL_SECRET),
+        LIFF_ID: envState(process.env.LIFF_ID),
       }
     });
   });

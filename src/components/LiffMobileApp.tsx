@@ -40,6 +40,17 @@ declare global {
 // Singleton flag to prevent multiple liff.init calls across re-renders
 let isLiffInitializedGlobally = false;
 
+// True when the local LIFF simulator is active (?liff=mock in the URL).
+// Used to show a visible "SIM" badge so staff/devs know LINE is simulated.
+function isLiffMockMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URLSearchParams(window.location.search).get('liff') === 'mock';
+  } catch {
+    return false;
+  }
+}
+
 export const LiffMobileApp: React.FC<LiffMobileAppProps> = ({
   customers,
   products,
@@ -171,6 +182,14 @@ export const LiffMobileApp: React.FC<LiffMobileAppProps> = ({
               <span className="bg-[#06c755] text-slate-950 px-1.5 py-0.2 rounded font-mono text-[10px] font-black">
                 LIFF
               </span>
+              {isLiffMockMode() && (
+                <span
+                  className="bg-amber-400 text-amber-950 px-1.5 py-0.2 rounded font-mono text-[10px] font-black"
+                  title="LINE LIFF is being simulated locally (no real credentials). Remove ?liff=mock to use the real LINE SDK."
+                >
+                  SIM
+                </span>
+              )}
             </div>
             <p className="text-[10px] text-slate-400 leading-none">
               The 1 Member & Staff Copilot
