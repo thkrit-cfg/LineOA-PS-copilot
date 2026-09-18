@@ -3,6 +3,8 @@ import { mockDb } from './mockDb';
 import { verifyLineSignature, buildStaffProfileFlex } from './lineService';
 import { inboxStore } from './inboxStore';
 import { computeThreadPriority } from '../src/services/priorityEngine';
+import { classifyIntent } from '../src/services/intentEngine';
+import { generateReplyDraft } from '../src/services/replyDraftEngine';
 
 /**
  * Shared Express application (API routes only).
@@ -293,6 +295,89 @@ export function createApp() {
       avatarUrl: existing?.avatarUrl,
     });
     res.json({ success: true, thread });
+  });
+
+  // ==========================================
+  // Sprint 5 — AI reply drafting.
+  // Optional LLM path: only used when OPENAI_API_KEY is set. Without a key
+  // (or on any LLM failure) it degrades gracefully to the offline template
+  // generator, so the Draft button always works.
+  // ==========================================
+  app.post('/api/inbox/threads/:lineUid/draft', async (req: Request, res: Response) => {
+    const lineUid = String(req.params.lineUid);
+    try {
+      const thread = await inboxStore.getThread(lineUid);
+      if (!thread) {
+        return res.status(404).json({ error: 'Thread not found' });
+      }
+      const customer = thread.customerCrmId
+        ? mockDb.getCustomerById(thread.customerCrmId) || null
+        : null;
+      const lastCustomerMsg = [...thread.messages].reverse().find(m => m.from === 'customer');
+      const lastText = lastCustomerMsg?.text || '';
+      const intent = classifyIntent(lastText).intent;
+
+      // Offline template path (always available)
+      const templateDraft = generateReplyDraft(
+        intent,
+        customer,
+        lastText,
+        thread.displayName
+      );
+
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.json({ success: true, ...templateDraft, llmAvailable: false });
+      }
+
+      // Optional LLM path
+      try {
+        const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            max_tokens: 300,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a friendly Tops supermarket LINE OA staff assistant writing in Thai. ' +
+                  'Draft ONE short reply (max 3 sentences) to the customer message. ' +
+                  'Use the customer context to personalize. No markdown, no emojis overload.',
+              },
+              {
+                role: 'user',
+                content: [
+                  customer
+                    ? `Customer: ${customer.fullName} (${customer.rfmSegment}, ${customer.tier}, LTV ${customer.totalSpendLtv} THB, last purchase ${customer.daysSinceLastPurchase}d ago, top category: ${customer.topCategories.join(', ')})`
+                    : 'Customer: not linked to CRM',
+                  `Detected intent: ${intent}`,
+                  `Customer message: ${lastText}`,
+                ].join('\n'),
+              },
+            ],
+          }),
+        });
+        if (llmRes.ok) {
+          const j: any = await llmRes.json();
+          const text = j?.choices?.[0]?.message?.content?.trim();
+          if (text) {
+            return res.json({ success: true, text, source: 'llm', llmAvailable: true });
+          }
+        }
+      } catch (err: any) {
+        console.error('LLM draft failed, falling back to template:', err?.message);
+      }
+
+      // Graceful degradation
+      res.json({ success: true, ...templateDraft, llmAvailable: true });
+    } catch (err: any) {
+      res.status(500).json({ error: 'draft failed', message: err?.message });
+    }
   });
 
   // ==========================================

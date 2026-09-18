@@ -23,6 +23,8 @@ import {
   Zap,
   Flame,
   Crown,
+  PenLine,
+  X,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier, UpsellRecommendation } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
@@ -30,6 +32,7 @@ import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
 import { computeCustomerValue, CustomerValue } from '../services/attributionEngine';
+import { generateReplyDraft } from '../services/replyDraftEngine';
 
 // ---- API types (mirror docs/inbox-api-contract.md) --------------------------
 interface InboxMessage {
@@ -230,6 +233,7 @@ export const StaffInbox: React.FC = () => {
     setCrmOpen(false);
     setCrmMode('view');
     setLinkState(null);
+    setDraftPreview(null);
     try {
       const r = await fetch(`/api/inbox/threads/${lineUid}`);
       const j = await r.json();
@@ -349,6 +353,41 @@ export const StaffInbox: React.FC = () => {
       `Reply "YES" and I'll add it to your next order!`;
     setDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${msg}` : msg));
   }, []);
+
+  // ---- Sprint 5: AI reply drafting (offline-first) --------------------------
+  const [draftPreview, setDraftPreview] = useState<string | null>(null);
+  const [draftSource, setDraftSource] = useState<'template' | 'llm'>('template');
+  const [drafting, setDrafting] = useState(false);
+
+  const makeDraft = useCallback(async () => {
+    if (!detail || drafting) return;
+    setDrafting(true);
+    try {
+      const intent = intentResult?.intent ?? 'other';
+      // Offline template path — always works, no API key required.
+      let result = generateReplyDraft(
+        intent,
+        detail.customer ?? null,
+        lastCustomerMsg?.text || '',
+        detail.displayName
+      );
+      // Optional server path: LLM only when OPENAI_API_KEY is configured,
+      // otherwise the endpoint returns the same template draft.
+      try {
+        const r = await fetch(`/api/inbox/threads/${activeUid}/draft`, { method: 'POST' });
+        const j = await r.json();
+        if (j?.success && typeof j.text === 'string' && j.text.trim()) {
+          result = { text: j.text.trim(), source: j.source === 'llm' ? 'llm' : 'template' };
+        }
+      } catch {
+        // Network/server error → keep the offline template.
+      }
+      setDraftSource(result.source);
+      setDraftPreview(result.text);
+    } finally {
+      setDrafting(false);
+    }
+  }, [detail, activeUid, intentResult, lastCustomerMsg, drafting]);
 
   // Link a CRM customer to the active LINE account (maps their lineUid).
   const linkCustomer = useCallback(
@@ -582,7 +621,54 @@ export const StaffInbox: React.FC = () => {
                 : sendState.msg}
             </div>
           )}
+          {/* Sprint 5: AI draft preview (editable) */}
+          {draftPreview !== null && (
+            <div className="mb-2 rounded-xl bg-[#0b0f17] border border-emerald-500/30 overflow-hidden">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-slate-800 bg-emerald-500/[0.06]">
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span className="text-[10px] font-bold text-emerald-300">AI draft</span>
+                <span className="text-[9px] text-slate-500">{draftSource === 'llm' ? 'LLM' : 'template'}</span>
+                <button
+                  onClick={() => setDraftPreview(null)}
+                  className="ml-auto p-1 rounded hover:bg-slate-800 text-slate-500"
+                  title="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <textarea
+                value={draftPreview}
+                onChange={e => setDraftPreview(e.target.value)}
+                rows={3}
+                className="w-full resize-none bg-transparent px-3 py-2 text-[13px] text-slate-100 focus:outline-none"
+              />
+              <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800">
+                <button
+                  onClick={() => {
+                    setDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${draftPreview}` : draftPreview));
+                    setDraftPreview(null);
+                  }}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Use in composer
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex items-end gap-2">
+            <button
+              onClick={makeDraft}
+              disabled={drafting}
+              className="w-11 h-11 shrink-0 rounded-full bg-[#0b0f17] border border-slate-700 hover:border-emerald-500 text-emerald-300 flex items-center justify-center disabled:opacity-40"
+              title="Draft a reply"
+            >
+              {drafting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <PenLine className="w-5 h-5" />
+              )}
+            </button>
             <textarea
               value={draft}
               onChange={e => setDraft(e.target.value)}
