@@ -18,9 +18,11 @@ import {
   Gift,
   ChevronRight,
   Flame,
-  Award
+  Award,
+  Search
 } from 'lucide-react';
 import { CustomerProfile, GroceryProduct, PushMessageLog } from '../types';
+import { CustomerCrmDrawer } from './CustomerCrmDrawer';
 
 interface LiffMobileAppProps {
   customers: CustomerProfile[];
@@ -53,6 +55,7 @@ export const LiffMobileApp: React.FC<LiffMobileAppProps> = ({
   const [activeCouponBarcode, setActiveCouponBarcode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [showCrmDrawer, setShowCrmDrawer] = useState<boolean>(false);
 
   // Link status state
   const currentCustomer = customers.find(c => c.crmCustomerId === selectedCustomerId) || customers[0];
@@ -242,18 +245,28 @@ export const LiffMobileApp: React.FC<LiffMobileAppProps> = ({
           <User className="w-3.5 h-3.5 text-emerald-400" />
           <span className="text-[11px]">Active Customer:</span>
         </div>
-        <select
-          value={selectedCustomerId}
-          onChange={(e) => setSelectedCustomerId(e.target.value)}
-          className="bg-[#0b0f17] text-white text-xs py-1 px-2.5 rounded border border-slate-700 focus:outline-none focus:border-emerald-500 font-medium"
+        <button
+          onClick={() => setShowCrmDrawer(true)}
+          className="flex items-center gap-2 min-w-0 bg-[#0b0f17] border border-slate-700 hover:border-emerald-500 rounded-lg py-1 px-2.5 focus:outline-none focus:border-emerald-500 transition-colors"
+          title="Open Customer CRM Lookup"
         >
-          {customers.map((c) => (
-            <option key={c.crmCustomerId} value={c.crmCustomerId}>
-              {c.fullName} ({c.tier})
-            </option>
-          ))}
-        </select>
+          <span className="text-white text-xs font-medium truncate max-w-[150px]">
+            {currentCustomer?.fullName || 'Select customer'}
+          </span>
+          <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded shrink-0">
+            {currentCustomer?.tier || '—'}
+          </span>
+          <Search className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        </button>
       </div>
+
+      {/* Customer CRM Lookup Drawer */}
+      <CustomerCrmDrawer
+        open={showCrmDrawer}
+        onClose={() => setShowCrmDrawer(false)}
+        customers={customers}
+        onOpenCustomer={(id) => setSelectedCustomerId(id)}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4 pb-20">
