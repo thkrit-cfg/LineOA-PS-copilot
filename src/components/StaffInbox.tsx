@@ -20,11 +20,13 @@ import {
   WifiOff,
   Link2,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier, UpsellRecommendation } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
 import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
+import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
 
 // ---- API types (mirror docs/inbox-api-contract.md) --------------------------
 interface InboxMessage {
@@ -281,6 +283,25 @@ export const StaffInbox: React.FC = () => {
 
   const totalUnread = useMemo(() => threads.reduce((s, t) => s + (t.unread || 0), 0), [threads]);
 
+  // ---- Sprint 2: intent + next-best-action (last customer message) ---------
+  const lastCustomerMsg = useMemo(() => {
+    if (!detail) return null;
+    for (let i = detail.messages.length - 1; i >= 0; i--) {
+      if (detail.messages[i].from === 'customer') return detail.messages[i];
+    }
+    return null;
+  }, [detail]);
+
+  const intentResult = useMemo(
+    () => (lastCustomerMsg ? classifyIntent(lastCustomerMsg.text) : null),
+    [lastCustomerMsg]
+  );
+
+  const nba: NextBestAction | null = useMemo(
+    () => (intentResult ? nextBestAction(intentResult.intent, detail?.customer ?? null) : null),
+    [intentResult, detail?.customer]
+  );
+
   // ---- Sprint 1: in-chat copilot recs (mapped customers only) ---------------
   const recs = useMemo(
     () => (detail?.customer ? getPersonalizedRecommendations(detail.customer).slice(0, 3) : []),
@@ -398,6 +419,22 @@ export const StaffInbox: React.FC = () => {
               </div>
             </div>
           )}
+          {nba && (
+            <div className="px-3 pb-2.5 shrink-0">
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+                  nba.tone === 'urgent'
+                    ? 'bg-red-500/15 text-red-300 border-red-500/40'
+                    : nba.tone === 'opportunity'
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                      : 'bg-slate-500/15 text-slate-300 border-slate-500/40'
+                }`}
+              >
+                <Zap className="w-3 h-3 shrink-0" />
+                Next best: {nba.label}
+              </span>
+            </div>
+          )}
           {!c && (
             <div className="px-3 pb-2.5 flex items-center gap-1.5 text-[10px] text-amber-300/80 shrink-0">
               <Link2 className="w-3 h-3" />
@@ -415,6 +452,7 @@ export const StaffInbox: React.FC = () => {
             const mine = m.from === 'staff';
             const prev = detail.messages[i - 1];
             const showTime = !prev || m.ts - prev.ts > 60000;
+            const isLastCustomer = !mine && lastCustomerMsg?.id === m.id;
             return (
               <div key={m.id}>
                 {showTime && (
@@ -437,6 +475,14 @@ export const StaffInbox: React.FC = () => {
                       {fmtTime(m.ts)}
                       {mine && <CheckCheck className="w-3 h-3" />}
                     </div>
+                    {isLastCustomer && intentResult && (
+                      <div className="mt-1.5 flex items-center gap-1">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-400/40 text-indigo-300 text-[9px] font-bold">
+                          {intentResult.label}
+                        </span>
+                        <span className="text-[9px] text-slate-500">{intentResult.confidence}%</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
