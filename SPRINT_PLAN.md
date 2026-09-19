@@ -86,3 +86,35 @@ Acceptance:
 - Draft button produces a sensible suggested reply for a sample intent.
 - Works with no API key (template path).
 - tsc + build clean.
+
+## Backlog (parked)
+
+### Real-time inbox: WebSocket to replace 15s polling — PARKED 2026-09-19
+Decision: park. Current 15s poll is durable (Neon) and adequate; revisit if
+real-time becomes a staff complaint.
+
+Research done (2026-09-19):
+- Vercel Functions serve real WebSockets on Fluid Compute (default for our
+  project). `ws` + `WebSocketServer({ noServer: true })` upgrade pattern works
+  with our Express app; no vercel.json changes needed for the upgrade itself.
+- HARD CONSTRAINT: webhook invocation and the open chat tab are separate
+  serverless instances — no shared memory. Cross-instance fan-out needs a
+  broker. Vercel's documented pattern for chat = WebSocket + Redis pub/sub
+  (Marketplace Redis → REDIS_URL env var, ~$0–25/mo).
+- Neon LISTEN/NOTIFY is NOT viable: needs a persistent direct connection,
+  which serverless won't hold (and pooled connections disallow it).
+- WS connections close at function maxDuration (300s default; 800s max on
+  Pro) — client must auto-reconnect with backoff (1s → 30s) and re-join.
+- Cheaper interim option if ever needed before Redis: tighten poll to ~5s.
+
+Implementation sketch (when un-parked):
+1. Provision Redis via Vercel Marketplace → REDIS_URL.
+2. `server/realtime.ts`: per-instance `wss` (noServer) + Redis SUBSCRIBE;
+   Express `upgrade` handler on `/api/ws`; heartbeat + reconnect-safe join.
+3. Webhook + staff-send routes: after Neon write, `PUBLISH inbox:events`
+   with `{ type: 'message', lineUid, ts }` (or full summary).
+4. Client: `src/services/realtimeClient.ts` — WS connect, exponential
+   backoff, on event → refresh that thread (or append message) + list bump.
+   Keep 15s poll as fallback when WS is down.
+5. Acceptance: message sent on LINE appears in open staff tab < 2s, no
+   refresh; reconnects cleanly after tab sleep; tsc + build clean.
