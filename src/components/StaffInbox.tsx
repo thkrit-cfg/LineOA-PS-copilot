@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier, UpsellRecommendation, ActivePromotion, PromoType } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
-import { ProfilePanel } from './ProfilePanel';
+import { ProfilePanel, ProfileHeader, ProfileBody } from './ProfilePanel';
 import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
@@ -223,6 +223,17 @@ export const StaffInbox: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<number | null>(null);
 
+  // Sprint 7: desktop (≥1024px) — drives keyboard nav, which stays list-only
+  // on mobile but can target the always-visible left pane on desktop.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   // Load CRM customers once (for the full CRM drawer)
   useEffect(() => {
     fetch('/api/customers')
@@ -395,9 +406,11 @@ export const StaffInbox: React.FC = () => {
     return arr;
   }, [threads, sortMode, statusFilter, query]);
 
-  // Keyboard nav on the list view: ↑/↓ move, Enter opens, Esc clears search.
+  // Keyboard nav: ↑/↓ move, Enter opens, Esc clears search.
+  // Mobile: list view only. Desktop: also works with a thread open (the left
+  // pane is always visible) — but never while typing in an input/textarea.
   useEffect(() => {
-    if (activeUid) return; // only on the list view
+    if (activeUid && !isDesktop) return;
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
@@ -430,7 +443,7 @@ export const StaffInbox: React.FC = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeUid, sortedThreads, highlightIdx, openThread]);
+  }, [activeUid, isDesktop, sortedThreads, highlightIdx, openThread]);
 
   // Reset highlight when the visible list changes shape.
   useEffect(() => {
@@ -566,7 +579,14 @@ export const StaffInbox: React.FC = () => {
   if (activeUid && detail) {
     const c = detail.customer;
     return (
-      <div className="h-[100dvh] w-full max-w-md mx-auto flex flex-col bg-[#0b0f17] text-slate-100">
+      <div className="h-[100dvh] w-full bg-[#0b0f17] text-slate-100 flex flex-col md:flex-row">
+        {/* Left pane — thread list (desktop only; mobile uses the back button) */}
+        <div className="hidden md:flex md:w-[320px] lg:w-[360px] shrink-0 flex-col border-r border-slate-800 min-h-0">
+          {renderListPane()}
+        </div>
+
+        {/* Center pane — conversation (the existing single-column flow) */}
+        <div className="flex-1 min-w-0 w-full max-w-md md:max-w-none mx-auto md:mx-0 flex flex-col min-h-0">
         {/* Header */}
         <div className="border-b border-slate-800 bg-[#0d131f] shrink-0">
           <div className="px-3 py-2.5 flex items-center gap-2.5">
@@ -576,7 +596,7 @@ export const StaffInbox: React.FC = () => {
                 setDetail(null);
                 loadThreads(true);
               }}
-              className="p-1.5 -ml-1 rounded-lg hover:bg-slate-800 text-slate-300"
+              className="p-1.5 -ml-1 rounded-lg hover:bg-slate-800 text-slate-300 md:hidden"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -830,6 +850,39 @@ export const StaffInbox: React.FC = () => {
           </div>
         </div>
 
+        </div>
+
+        {/* Right pane — CRM inspector (desktop only): permanent column bound to
+            the open thread's customer. Unlinked threads get a link prompt. */}
+        <div className="hidden md:flex md:w-[340px] lg:w-[380px] shrink-0 flex-col border-l border-slate-800 bg-[#0d131f] min-h-0">
+          {c ? (
+            <>
+              <ProfileHeader customer={c} />
+              <ProfileBody customer={c} />
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center min-h-0">
+              <div className="w-14 h-14 rounded-2xl bg-[#0b0f17] border border-slate-800 flex items-center justify-center">
+                <Link2 className="w-6 h-6 text-slate-500" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-white text-sm">No CRM customer linked</h4>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                  Link this LINE account to a customer to see their value, intent and
+                  next-best-action here.
+                </p>
+              </div>
+              <button
+                onClick={openCrm}
+                className="px-4 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 hover:bg-amber-500/25 transition-colors"
+              >
+                <Link2 className="w-4 h-4" />
+                Link CRM
+              </button>
+            </div>
+          )}
+        </div>
+
         <CustomerCrmDrawer
           open={crmOpen}
           onClose={() => setCrmOpen(false)}
@@ -848,9 +901,11 @@ export const StaffInbox: React.FC = () => {
     );
   }
 
-  // ---- Thread list view ------------------------------------------------------
-  return (
-    <div className="h-[100dvh] w-full max-w-md mx-auto flex flex-col bg-[#0b0f17] text-slate-100">
+  // ---- Thread list pane (shared: mobile full screen, desktop left column) ----
+  // Function declaration (hoisted) so the detail view above can call it.
+  function renderListPane() {
+    return (
+    <>
       {/* Header */}
       <div className="border-b border-slate-800 bg-[#0d131f] px-4 py-3 flex items-center gap-2.5 shrink-0">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center">
@@ -969,15 +1024,20 @@ export const StaffInbox: React.FC = () => {
                 const highValue = flags.includes('high_value');
                 const st = t.status || 'active';
                 const hl = idx === highlightIdx;
+                const active = t.lineUid === activeUid;
                 return (
                 <button
                   key={t.lineUid}
                   data-hl={hl ? '1' : undefined}
                   onClick={() => openThread(t.lineUid)}
                   className={`w-full text-left px-4 py-3 hover:bg-slate-800/40 flex items-center gap-3 ${
-                    hl ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/40' : ''
+                    active
+                      ? 'bg-emerald-500/[0.08]'
+                      : hl
+                        ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/40'
+                        : ''
                   } ${
-                    atRisk && !hl ? 'border-l-2 border-l-red-500/70 bg-red-500/[0.04]' : ''
+                    atRisk && !hl && !active ? 'border-l-2 border-l-red-500/70 bg-red-500/[0.04]' : ''
                   }`}
                 >
                   <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shrink-0 relative overflow-hidden">
@@ -1062,6 +1122,14 @@ export const StaffInbox: React.FC = () => {
           </div>
         )}
       </div>
+    </>
+    );
+  }
+
+  // ---- Thread list view (mobile) ---------------------------------------------
+  return (
+    <div className="h-[100dvh] w-full max-w-md mx-auto flex flex-col bg-[#0b0f17] text-slate-100">
+      {renderListPane()}
     </div>
   );
 };

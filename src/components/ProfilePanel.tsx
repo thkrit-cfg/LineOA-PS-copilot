@@ -114,29 +114,15 @@ export const CopyRow: React.FC<{ label: string; value: string; mono?: boolean }>
   );
 };
 
-// ---- Profile panel ------------------------------------------------------------
+// ---- Profile body (shared) ----------------------------------------------------
 //
-// Bottom sheet bound to ONE customer — the thread's customer. No search, no
-// customer list: staff literally cannot wander into another customer's data.
+// The full customer profile: The 1 card, contact, CRM metrics, categories,
+// dietary, recent purchases, LINE/PDPA status, staff notes + action bar.
+// Rendered inside the mobile bottom sheet (ProfilePanel) AND as the permanent
+// desktop right-column inspector — one implementation, no duplicate logic.
 
-interface ProfilePanelProps {
-  open: boolean;
-  onClose: () => void;
-  customer: CustomerProfile;
-}
-
-export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, customer }) => {
+export const ProfileBody: React.FC<{ customer: CustomerProfile }> = ({ customer }) => {
   const [copiedCard, setCopiedCard] = useState(false);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
 
   const copyCardNo = async () => {
     try {
@@ -149,6 +135,268 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, custo
   };
 
   const tier = TIER_STYLES[customer.tier] || TIER_STYLES.MEMBER;
+
+  return (
+    <>
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 pb-2 min-h-0">
+        {/* Loyalty / The 1 card */}
+        <div className={`relative rounded-2xl overflow-hidden p-4 border bg-gradient-to-br ${tier.card}`}>
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center font-black text-white text-xs">
+                1
+              </div>
+              <div>
+                <div className="text-xs font-extrabold text-white">The 1 Loyalty Card</div>
+                <div className="text-[9px] text-amber-300/80 uppercase tracking-wider">
+                  {tier.label}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={copyCardNo}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/30 border border-white/10 text-[10px] text-slate-200 hover:bg-black/50"
+              title="Copy card number"
+            >
+              {copiedCard ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+              <span>{copiedCard ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+          <div className="font-mono text-xl text-white font-black tracking-widest mt-3">
+            {customer.the1CardNo}
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800 space-y-2.5">
+          <CopyRow label="Phone" value={customer.phone} />
+          <CopyRow label="Email" value={customer.email} mono={false} />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-slate-400 shrink-0">Home Store</span>
+            <span className="text-xs text-slate-100 flex items-center gap-1.5 truncate">
+              <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">{customer.preferredBranch}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* CRM metrics */}
+        <div className="grid grid-cols-2 gap-2">
+          <Metric label="Total Spend (LTV)" value={`฿${customer.totalSpendLtv.toLocaleString()}`} accent="text-emerald-400" />
+          <Metric label="Avg Spend (AOV)" value={`฿${customer.aov.toLocaleString()}`} accent="text-amber-300" />
+          <Metric label="Orders" value={customer.orderCount} sub="lifetime" />
+          <Metric
+            label="Last Purchase"
+            value={`${customer.daysSinceLastPurchase}d`}
+            sub={customer.lastPurchaseDate}
+            accent={customer.daysSinceLastPurchase > 21 ? 'text-red-400' : 'text-white'}
+          />
+        </div>
+
+        {/* Top categories */}
+        <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2">
+            <Layers className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-semibold text-slate-300">Top Categories</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {customer.topCategories.map(cat => (
+              <span
+                key={cat}
+                className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 text-[11px] font-medium border border-amber-500/20"
+              >
+                {cat}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Dietary preferences */}
+        <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2">
+            <Utensils className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="font-semibold text-slate-300">Dietary Preferences</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {customer.dietaryPreferences.map(tag => (
+              <span
+                key={tag}
+                className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 text-[11px] font-medium border border-emerald-500/20"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent transactions */}
+        {customer.transactions.length > 0 && (
+          <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2">
+              <History className="w-3.5 h-3.5 text-blue-400" />
+              <span className="font-semibold text-slate-300">Recent Purchases</span>
+            </div>
+            <div className="space-y-2">
+              {customer.transactions.slice(0, 3).map(t => (
+                <div key={t.orderId} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="min-w-0">
+                    <div className="font-mono text-slate-300">{t.orderId}</div>
+                    <div className="text-[10px] text-slate-500">
+                      {t.date} • {t.items.length} items
+                    </div>
+                  </div>
+                  <span className="font-bold text-white shrink-0">฿{t.totalAmount.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* LINE status + PDPA */}
+        <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5 text-[#06c755]" />
+              LINE OA
+            </span>
+            {customer.isLineFriend ? (
+              <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {customer.lineDisplayName || 'Connected'}
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-slate-500">Not connected</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+              {customer.pdpaConsent ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+              )}
+              PDPA Consent
+            </span>
+            {customer.pdpaConsent ? (
+              <span className="text-[11px] font-bold text-emerald-400">
+                Granted {customer.pdpaConsentDate ? `• ${customer.pdpaConsentDate}` : ''}
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-amber-400">Not granted</span>
+            )}
+          </div>
+        </div>
+
+        {/* Staff notes */}
+        {customer.staffNotes && (
+          <div className="bg-amber-950/30 rounded-2xl p-3.5 border border-amber-800/40">
+            <div className="flex items-center gap-1.5 text-[11px] text-amber-300 mb-1.5">
+              <StickyNote className="w-3.5 h-3.5" />
+              <span className="font-semibold">Staff Notes</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">{customer.staffNotes}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Action bar — real actions: call + copy card */}
+      <div className="p-3 border-t border-slate-800 bg-[#0d131f] shrink-0 flex gap-2">
+        <a
+          href={`tel:${customer.phone}`}
+          className="flex-1 py-3 rounded-xl bg-[#06c755] hover:bg-[#05b34c] text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+        >
+          <Phone className="w-4 h-4" />
+          {customer.phone}
+        </a>
+        <button
+          onClick={copyCardNo}
+          className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+        >
+          {copiedCard ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <Copy className="w-4 h-4" />
+          )}
+          {copiedCard ? 'Copied' : 'Copy card'}
+        </button>
+      </div>
+    </>
+  );
+};
+
+// ---- Profile header (shared) --------------------------------------------------
+//
+// Avatar + name + CRM id + segment + tier. Used by the mobile sheet header and
+// the permanent desktop inspector column (no close button there).
+
+export const ProfileHeader: React.FC<{ customer: CustomerProfile; onClose?: () => void }> = ({
+  customer,
+  onClose,
+}) => {
+  const tier = TIER_STYLES[customer.tier] || TIER_STYLES.MEMBER;
+  return (
+    <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-3 shrink-0">
+      {customer.lineAvatarUrl ? (
+        <img
+          src={customer.lineAvatarUrl}
+          alt={customer.fullName}
+          className="w-11 h-11 rounded-full object-cover border-2 border-slate-700 shrink-0"
+        />
+      ) : (
+        <div className="w-11 h-11 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-bold shrink-0">
+          {firstName(customer.fullName).charAt(0)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <h4 className="font-extrabold text-white text-sm truncate">{customer.fullName}</h4>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="font-mono text-[10px] text-slate-400 shrink-0">{customer.crmCustomerId}</span>
+          <SegmentBadge segment={customer.rfmSegment} className="shrink-0" />
+          <span className="text-[10px] text-slate-500 truncate">{tier.label}</span>
+        </div>
+      </div>
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0"
+          title="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ---- Profile panel (mobile bottom sheet) --------------------------------------
+//
+// Bottom sheet bound to ONE customer — the thread's customer. No search, no
+// customer list: staff literally cannot wander into another customer's data.
+// On desktop (≥1024px) the same ProfileHeader + ProfileBody render as a
+// permanent right column instead — see StaffInbox.
+
+interface ProfilePanelProps {
+  open: boolean;
+  onClose: () => void;
+  customer: CustomerProfile;
+}
+
+export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, customer }) => {
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   return (
     <>
@@ -175,224 +423,9 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, custo
           <div className="w-10 h-1 rounded-full bg-slate-700" />
         </div>
 
-        {/* Header — this thread's customer only */}
-        <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-3 shrink-0">
-          {customer.lineAvatarUrl ? (
-            <img
-              src={customer.lineAvatarUrl}
-              alt={customer.fullName}
-              className="w-11 h-11 rounded-full object-cover border-2 border-slate-700 shrink-0"
-            />
-          ) : (
-            <div className="w-11 h-11 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-bold shrink-0">
-              {firstName(customer.fullName).charAt(0)}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <h4 className="font-extrabold text-white text-sm truncate">{customer.fullName}</h4>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="font-mono text-[10px] text-slate-400 shrink-0">{customer.crmCustomerId}</span>
-              <SegmentBadge segment={customer.rfmSegment} className="shrink-0" />
-              <span className="text-[10px] text-slate-500 truncate">{tier.label}</span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ProfileHeader customer={customer} onClose={onClose} />
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 pb-2">
-          {/* Loyalty / The 1 card */}
-          <div className={`relative rounded-2xl overflow-hidden p-4 border bg-gradient-to-br ${tier.card}`}>
-            <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center font-black text-white text-xs">
-                  1
-                </div>
-                <div>
-                  <div className="text-xs font-extrabold text-white">The 1 Loyalty Card</div>
-                  <div className="text-[9px] text-amber-300/80 uppercase tracking-wider">
-                    {tier.label}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={copyCardNo}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/30 border border-white/10 text-[10px] text-slate-200 hover:bg-black/50"
-                title="Copy card number"
-              >
-                {copiedCard ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-                <span>{copiedCard ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
-            <div className="font-mono text-xl text-white font-black tracking-widest mt-3">
-              {customer.the1CardNo}
-            </div>
-          </div>
-
-          {/* Contact */}
-          <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800 space-y-2.5">
-            <CopyRow label="Phone" value={customer.phone} />
-            <CopyRow label="Email" value={customer.email} mono={false} />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-400 shrink-0">Home Store</span>
-              <span className="text-xs text-slate-100 flex items-center gap-1.5 truncate">
-                <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate">{customer.preferredBranch}</span>
-              </span>
-            </div>
-          </div>
-
-          {/* CRM metrics */}
-          <div className="grid grid-cols-2 gap-2">
-            <Metric label="Total Spend (LTV)" value={`฿${customer.totalSpendLtv.toLocaleString()}`} accent="text-emerald-400" />
-            <Metric label="Avg Spend (AOV)" value={`฿${customer.aov.toLocaleString()}`} accent="text-amber-300" />
-            <Metric label="Orders" value={customer.orderCount} sub="lifetime" />
-            <Metric
-              label="Last Purchase"
-              value={`${customer.daysSinceLastPurchase}d`}
-              sub={customer.lastPurchaseDate}
-              accent={customer.daysSinceLastPurchase > 21 ? 'text-red-400' : 'text-white'}
-            />
-          </div>
-
-          {/* Top categories */}
-          <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2">
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-semibold text-slate-300">Top Categories</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {customer.topCategories.map(cat => (
-                <span
-                  key={cat}
-                  className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 text-[11px] font-medium border border-amber-500/20"
-                >
-                  {cat}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Dietary preferences */}
-          <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2">
-              <Utensils className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="font-semibold text-slate-300">Dietary Preferences</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {customer.dietaryPreferences.map(tag => (
-                <span
-                  key={tag}
-                  className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 text-[11px] font-medium border border-emerald-500/20"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent transactions */}
-          {customer.transactions.length > 0 && (
-            <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800">
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2">
-                <History className="w-3.5 h-3.5 text-blue-400" />
-                <span className="font-semibold text-slate-300">Recent Purchases</span>
-              </div>
-              <div className="space-y-2">
-                {customer.transactions.slice(0, 3).map(t => (
-                  <div key={t.orderId} className="flex items-center justify-between gap-2 text-xs">
-                    <div className="min-w-0">
-                      <div className="font-mono text-slate-300">{t.orderId}</div>
-                      <div className="text-[10px] text-slate-500">
-                        {t.date} • {t.items.length} items
-                      </div>
-                    </div>
-                    <span className="font-bold text-white shrink-0">฿{t.totalAmount.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* LINE status + PDPA */}
-          <div className="bg-[#141c2a] rounded-2xl p-3.5 border border-slate-800 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                <MessageCircle className="w-3.5 h-3.5 text-[#06c755]" />
-                LINE OA
-              </span>
-              {customer.isLineFriend ? (
-                <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {customer.lineDisplayName || 'Connected'}
-                </span>
-              ) : (
-                <span className="text-[11px] font-bold text-slate-500">Not connected</span>
-              )}
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                {customer.pdpaConsent ? (
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-                )}
-                PDPA Consent
-              </span>
-              {customer.pdpaConsent ? (
-                <span className="text-[11px] font-bold text-emerald-400">
-                  Granted {customer.pdpaConsentDate ? `• ${customer.pdpaConsentDate}` : ''}
-                </span>
-              ) : (
-                <span className="text-[11px] font-bold text-amber-400">Not granted</span>
-              )}
-            </div>
-          </div>
-
-          {/* Staff notes */}
-          {customer.staffNotes && (
-            <div className="bg-amber-950/30 rounded-2xl p-3.5 border border-amber-800/40">
-              <div className="flex items-center gap-1.5 text-[11px] text-amber-300 mb-1.5">
-                <StickyNote className="w-3.5 h-3.5" />
-                <span className="font-semibold">Staff Notes</span>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">{customer.staffNotes}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Action bar — real actions: call + copy card */}
-        <div className="p-3 border-t border-slate-800 bg-[#0d131f] shrink-0 flex gap-2">
-          <a
-            href={`tel:${customer.phone}`}
-            className="flex-1 py-3 rounded-xl bg-[#06c755] hover:bg-[#05b34c] text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors"
-          >
-            <Phone className="w-4 h-4" />
-            {customer.phone}
-          </a>
-          <button
-            onClick={copyCardNo}
-            className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
-          >
-            {copiedCard ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-            {copiedCard ? 'Copied' : 'Copy card'}
-          </button>
-        </div>
+        <ProfileBody customer={customer} />
       </motion.div>
     </>
   );
