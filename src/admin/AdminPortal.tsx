@@ -2,7 +2,7 @@
  * Sprint 11 — Admin Portal shell: login gate (GET /api/admin/me), header bar,
  * tab nav (Performance / Promotions / Tickets). Dark chrome matching StaffInbox.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, LogOut, ShieldCheck } from 'lucide-react';
 import { adminApi, type User } from './api';
@@ -124,6 +124,24 @@ const LoginScreen: React.FC<{ onLogin: (u: User) => void }> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Demo credentials hint — fetched from a dev-only endpoint that 404s in
+  // production, so the /admin page source never contains the email/password.
+  const [demo, setDemo] = useState<{ email: string; password: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/demo-credentials')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (!cancelled && j && j.email && j.password) setDemo(j);
+      })
+      .catch(() => {
+        /* production or offline — no hint */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,12 +203,17 @@ const LoginScreen: React.FC<{ onLogin: (u: User) => void }> = ({ onLogin }) => {
             Sign in
           </button>
         </form>
-        <div className="mt-4 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30">
-          <div className="text-[10px] font-bold text-emerald-300 mb-1">Demo account</div>
-          <div className="text-[11px] text-slate-300 font-mono break-all">
-            ops.director@topsgrocery.test / demo1234
+        {/* Demo-credentials hint: fetched from /api/admin/demo-credentials,
+            which 404s in production — so it renders only in local dev and
+            the /admin page source never contains the email/password. */}
+        {demo && (
+          <div className="mt-4 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30">
+            <div className="text-[10px] font-bold text-emerald-300 mb-1">Demo account</div>
+            <div className="text-[11px] text-slate-300 font-mono break-all">
+              {demo.email} / {demo.password}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -28,6 +28,25 @@ export function registerAdminApi(app: Express) {
     }
   });
 
+  // Dev-only: demo admin credentials for the login hint. NEVER served in
+  // production — the /admin page source must not contain the email/password.
+  app.get('/api/admin/demo-credentials', async (_req: Request, res: Response) => {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    try {
+      await adminStore.ensureSeeded();
+      const admin = adminStore.demoAdmin();
+      res.json({
+        email: admin.email,
+        password: process.env.DEMO_ADMIN_PASSWORD || 'demo1234',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'failed to load demo credentials', message: err?.message });
+    }
+  });
+
   // ---- metrics ----
   app.get('/api/admin/metrics', requireAdmin, async (_req: Request, res: Response) => {
     try {

@@ -493,7 +493,10 @@ export async function ensureSeeded(): Promise<void> {
       if (useNeon && sql) await ensureSchema();
       const firstRun = (await countUsers()) === 0;
       if (firstRun) {
-        const passwordHash = await hashPassword('demo1234');
+        // Demo password: env-overridable so production can seed a strong
+        // value (or rotate) instead of the well-known dev default.
+        const demoPassword = process.env.DEMO_ADMIN_PASSWORD || 'demo1234';
+        const passwordHash = await hashPassword(demoPassword);
         for (const u of SEED_STAFF) {
           if (useNeon && sql) {
             await sql`
@@ -530,6 +533,11 @@ export async function ensureSeeded(): Promise<void> {
 // ---- public store ---------------------------------------------------------------
 export const adminStore = {
   ensureSeeded,
+  /** First seeded admin (for the dev-only demo-credentials endpoint). */
+  demoAdmin(): { email: string; name: string } {
+    const admin = SEED_STAFF.find(u => u.isAdmin) ?? SEED_STAFF[0];
+    return { email: admin.email, name: admin.name };
+  },
   /** Create all admin tables (Neon only; no-op in memory mode). */
   ensureSchema,
 

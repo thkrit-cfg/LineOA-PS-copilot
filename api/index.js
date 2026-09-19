@@ -31377,7 +31377,8 @@ async function ensureSeeded() {
       if (useNeon2 && sql2) await ensureSchema2();
       const firstRun = await countUsers() === 0;
       if (firstRun) {
-        const passwordHash = await hashPassword("demo1234");
+        const demoPassword = process.env.DEMO_ADMIN_PASSWORD || "demo1234";
+        const passwordHash = await hashPassword(demoPassword);
         for (const u of SEED_STAFF) {
           if (useNeon2 && sql2) {
             await sql2`
@@ -31410,6 +31411,11 @@ async function ensureSeeded() {
 }
 var adminStore = {
   ensureSeeded,
+  /** First seeded admin (for the dev-only demo-credentials endpoint). */
+  demoAdmin() {
+    const admin = SEED_STAFF.find((u) => u.isAdmin) ?? SEED_STAFF[0];
+    return { email: admin.email, name: admin.name };
+  },
   /** Create all admin tables (Neon only; no-op in memory mode). */
   ensureSchema: ensureSchema2,
   async getUserByEmail(email) {
@@ -31921,6 +31927,22 @@ function registerAdminApi(app) {
       res.json({ data, total: data.length });
     } catch (err) {
       res.status(500).json({ error: "failed to list promotions", message: err?.message });
+    }
+  });
+  app.get("/api/admin/demo-credentials", async (_req, res) => {
+    if (process.env.NODE_ENV === "production") {
+      res.status(404).json({ error: "not found" });
+      return;
+    }
+    try {
+      await adminStore.ensureSeeded();
+      const admin = adminStore.demoAdmin();
+      res.json({
+        email: admin.email,
+        password: process.env.DEMO_ADMIN_PASSWORD || "demo1234"
+      });
+    } catch (err) {
+      res.status(500).json({ error: "failed to load demo credentials", message: err?.message });
     }
   });
   app.get("/api/admin/metrics", requireAdmin, async (_req, res) => {
