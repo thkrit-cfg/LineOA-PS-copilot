@@ -87,6 +87,64 @@ Acceptance:
 - Works with no API key (template path).
 - tsc + build clean.
 
+## Sprint 6 — Mobile-first CRM-in-chat (ProfilePanel + compact strip + LINE look)
+Source: wireframe `public/docs/wireframes/staff-inbox-v2.html` (TO-BE A–E).
+Scope (frontend only, no backend):
+- Split `CustomerCrmDrawer.tsx` → **ProfilePanel** (bound to ONE customer prop, NO
+  search, bottom sheet on mobile) + keep the search UI as a separate **link-mode
+  sheet** (only for unlinked threads). Delete the dead "Set as Active Customer" button.
+- Replace the 2-row `CrmStrip` + value strip with ONE compact tappable strip under
+  the conversation header: segment · The 1 card (tap-to-copy) · LTV · last purchase ·
+  first 2 dietary tags · preferred promo. Tapping the strip opens ProfilePanel.
+- Tier chip in the chat header (Platinum VIP / Gold / …).
+- `tel:` call link in the ProfilePanel action bar (phone already in profile).
+- LINE look & feel on the chat: beige canvas (#eae5dc), white customer bubbles,
+  LINE-green staff bubbles (#06c755) + green send button.
+- Keep as-is: thread data, priority sort, intent chip, AI draft, copilot recs, composer.
+Files: `src/components/StaffInbox.tsx`, `src/components/CustomerCrmDrawer.tsx`
+(split into `ProfilePanel.tsx` + link sheet), `src/types.ts` (if needed).
+Acceptance:
+- Open a mapped thread → one compact strip; tap → ProfilePanel sheet (no search,
+  this customer only); card number copies on tap; tel: link present.
+- Unlinked thread → "Link CRM" opens the search sheet only.
+- Chat canvas is beige, staff bubbles + send button are LINE green.
+- tsc + build clean.
+
+## Sprint 7 — Desktop 3-pane layout (≥1024px)
+Source: wireframe TO-BE F.
+Scope: at ≥1024px render the SAME components as a 3-pane OA-Manager layout —
+thread list (left), conversation (center), CRM inspector (right, permanent column
+bound to the open thread). Mobile (<1024px) keeps the single-column PWA flow.
+One codebase, mobile-first; no duplicate logic.
+Files: `src/components/StaffInbox.tsx` (responsive layout), `ProfilePanel.tsx`
+(right column on desktop, bottom sheet on mobile).
+Acceptance: at ≥1024px the three panes render side by side; inspector shows the
+open thread's customer; <1024px is unchanged. tsc + build clean.
+
+## Sprint 8 — Editable staff note (backend + frontend)
+Source: wireframe note "Editable staff note".
+Scope:
+- New endpoint `PATCH /api/inbox/threads/:uid/note` storing a staff note on the
+  thread (Neon) — the only new server work.
+- "Add note" in the ProfilePanel action bar → editable note field, persisted.
+Files: `server/app.ts`, `server/inboxStore.ts`, `src/components/ProfilePanel.tsx`.
+Acceptance: add a note in the panel → persists across refresh; tsc + build clean.
+
+## Sprint 9 — Voice / video call (CallScreen + join-link flow)
+Source: wireframe TO-BE E (headline differentiator vs LINE OA Manager).
+Scope:
+- New `CallScreen` component (full-screen: avatar, name, timer, mute/speaker/video/
+  end controls, "CRM stays loaded" hint).
+- 📞 / 🎥 buttons in the chat header. Staff taps call → app sends a "join call" link
+  in the LINE chat → customer taps to join (opens in LINE in-app browser).
+- Transport: WebRTC join-link via a configurable signaling service (Daily/Stream).
+  Degrades gracefully to `tel:` fallback from the profile sheet when no service is
+  configured (no API key).
+Files: `src/components/CallScreen.tsx` (new), `src/components/StaffInbox.tsx`,
+`server/app.ts` (optional `/call` join-link endpoint).
+Acceptance: 📞/🎥 present in header; tapping sends a join link into the thread;
+CallScreen renders; tel: fallback works with no service configured. tsc + build clean.
+
 ## Backlog (parked)
 
 ### Real-time inbox: WebSocket to replace 15s polling — PARKED 2026-09-19
