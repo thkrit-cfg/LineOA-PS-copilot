@@ -499,6 +499,66 @@
         <div class="frame-notes">Triggered by ✦ in composer. Source chip shows <b>template</b> vs <b>llm</b>. Draft is answer-shaped (answers the detected intent, not generic). <b>Insert</b> → composer (staff edits), <b>Send</b> → straight to LINE. Regenerate re-rolls with a different tone/offer.</div>
       </div>
 
+      <!-- 1.5 Ask HQ sheet -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">1.5</span> ASK HQ (ticket sheet)</div>
+        <div class="phone dark">
+          <div class="statusbar"><span>9:41</span><span>LINE OA · Staff</span><span>▮▮▮</span></div>
+          <div class="screen">
+            <div class="d-bar"><div style="font-size:14px;color:#94a3b8;">←</div><div class="d-ava" style="width:30px;height:30px;"></div><div style="flex:1;min-width:0;"><div class="d-title" style="font-size:12px;">Somchai K. <span class="badge gold">GOLD</span></div><div class="d-sub">Uc77aa21…</div></div><div style="font-size:9.5px;font-weight:800;color:#fcd34d;border:1px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.1);border-radius:8px;padding:5px 9px;flex-shrink:0;">💬 Ask HQ</div></div>
+            <div class="d-msgs" style="flex:0.4;">
+              <div class="d-bubble">The coupon FRESH15 didn't apply at checkout…<div class="meta">08:47</div><span class="intent">intent: promo-issue</span></div></div>
+            </div>
+            <div class="dim"></div>
+            <div class="sheet" style="max-height:70%;">
+              <div class="grab"></div>
+              <div class="sheet-head"><span class="t">💬 Ask HQ</span><span class="s">question ticket → HQ support</span><span class="x">✕</span></div>
+              <div class="sheet-body" style="gap:10px;">
+                <div style="border:1px solid var(--dark-line);border-radius:10px;padding:8px 10px;background:#0d131f;font-size:9.5px;color:#94a3b8;">
+                  <div style="display:flex;justify-content:space-between;"><span>Thread</span><span style="color:#e2e8f0;font-family:var(--mono);">Somchai K. · Uc77aa21…</span></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Branch</span><span style="color:#e2e8f0;">Rama 4</span></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Staff</span><span style="color:#e2e8f0;">K. Somchai · ST-0042</span></div>
+                </div>
+                <div class="f-field"><label>Subject *</label><div class="d-input" style="color:#e2e8f0;">Coupon FRESH15 not applying at Rama 4 POS</div></div>
+                <div class="f-field"><label>Message *</label><div class="d-input" style="min-height:44px;color:#cbd5e1;">Customer says code rejected at checkout. POS v2.3? Need HQ to check promo config…</div></div>
+              </div>
+              <div class="sheet-btns">
+                <div class="s-btn ghost">Cancel</div>
+                <div class="s-btn primary">Send to HQ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Backend already built (Sprint 10): <b>POST /api/inbox/threads/:lineUid/ticket</b> — subject + body required, thread auto-linked, staff attributed from session (staffId fallback for demo). Success → toast "Sent to HQ". Thread/branch/staff are read-only context — the question is always about <b>this</b> thread, so there's no separate ticket inbox on the staff side. Unlinked threads can raise tickets too (keyed by lineUid).</div>
+      </div>
+
+      <!-- 1.6 ticket status chip -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">1.6</span> TICKET STATUS CHIP (in thread header)</div>
+        <div class="phone dark">
+          <div class="statusbar"><span>9:41</span><span>LINE OA · Staff</span><span>▮▮▮</span></div>
+          <div class="screen">
+            <div class="d-bar"><div style="font-size:14px;color:#94a3b8;">←</div><div class="d-ava" style="width:30px;height:30px;"></div><div style="flex:1;min-width:0;"><div class="d-title" style="font-size:12px;">Somchai K. <span class="badge gold">GOLD</span></div><div class="d-sub">Uc77aa21…</div></div></div>
+            <div style="display:flex;gap:6px;padding:8px 12px 0;flex-wrap:wrap;">
+              <span style="font-size:9px;font-weight:800;color:#fcd34d;border:1px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.1);border-radius:999px;padding:3px 9px;">HQ: OPEN · 09:02</span>
+              <span style="font-size:9px;font-weight:800;color:#6ee7b7;border:1px solid rgba(16,185,129,0.4);background:rgba(16,185,129,0.1);border-radius:999px;padding:3px 9px;opacity:0.85;">HQ: ANSWERED · tap</span>
+              <span style="font-size:9px;font-weight:800;color:#94a3b8;border:1px solid var(--dark-line);border-radius:999px;padding:3px 9px;opacity:0.6;">HQ: RESOLVED</span>
+            </div>
+            <div style="margin:8px 12px;border:1px solid rgba(251,191,36,0.4);border-left:3px solid #f59e0b;border-radius:10px;background:#0d131f;padding:9px 11px;">
+              <div style="font-size:9px;font-weight:800;color:#fcd34d;letter-spacing:0.05em;">HQ ANSWER · 10:15</div>
+              <div style="font-size:10.5px;color:#e2e8f0;margin-top:5px;line-height:1.5;">FRESH15 was mis-scoped to EmQuartier only — fixed for all branches, POS cache refreshed. Ask the customer to retry; if it still fails, reopen the ticket.</div>
+              <div style="font-size:8.5px;color:#64748b;font-family:var(--mono);margin-top:5px;">— HQ support · ticket #12 · tap to collapse</div>
+            </div>
+            <div class="d-msgs" style="flex:1;">
+              <div class="d-bubble">The coupon FRESH15 didn't apply at checkout…<div class="meta">08:47</div></div>
+              <div class="d-bubble mine">Sorry about that! HQ just fixed it on our side — could you try the code again? 🙏<div class="meta">10:18 · sent via LINE</div></div>
+            </div>
+            <div class="d-composer"><div class="field">Reply…</div><div class="d-round ai">✦</div><div class="d-round fill">➤</div></div>
+          </div>
+        </div>
+        <div class="frame-notes"><b>GET /api/inbox/threads/:lineUid/tickets</b> on thread open. Chip states: <b>OPEN</b> (amber) → <b>ANSWERED</b> (green, tap → inline expand with HQ answer + timestamp, shown above the conversation) → <b>RESOLVED</b> (faded). Latest open/answered ticket wins when multiple exist. Staff follows up without leaving the thread — the answer lands where the question came from. HQ side (Admin Portal → Tickets) already works; this card is staff-side only.</div>
+      </div>
+
     </div>
   </section>
 
