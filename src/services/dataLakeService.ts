@@ -69,21 +69,26 @@ export class DataLakeService {
    * Rank live promotions for a specific customer, best fit first.
    * Signals: promo type they prefer, categories they buy, tier eligibility.
    * Returns up to `limit` with a short "why" reason for the staff UI.
+   *
+   * `promos` — optional live promo list (fetched from /api/inbox/promotions,
+   * the admin-managed source of truth). When omitted, falls back to the
+   * local data lake copy (offline / fetch-failure path).
    */
   public static suggestPromotions(
     customer: CustomerProfile | null | undefined,
-    limit = 3
+    limit = 3,
+    promos?: ActivePromotion[]
   ): Array<{ promo: ActivePromotion; reason: string }> {
-    const promos = this.getActivePromotions();
+    const all = promos ?? this.getActivePromotions();
     if (!customer) {
       // No CRM link: only the universal "link your card" offer is relevant.
-      return promos
+      return all
         .filter(p => p.id === 'PROMO-LINK100')
         .slice(0, limit)
         .map(p => ({ promo: p, reason: 'Unlocks member pricing after linking' }));
     }
 
-    const scored = promos.map(p => {
+    const scored = all.map(p => {
       let score = 0;
       const reasons: string[] = [];
 

@@ -223,6 +223,21 @@ export const StaffInbox: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<number | null>(null);
 
+  // ---- Live promotions (admin-managed, Neon) ------------------------------
+  // Source of truth: GET /api/inbox/promotions (HQ edits appear without a
+  // redeploy). The local data lake copy is only the offline fallback.
+  const [livePromos, setLivePromos] = useState<ActivePromotion[] | null>(null);
+  const loadLivePromos = useCallback(async () => {
+    try {
+      const r = await fetch('/api/inbox/promotions');
+      const j = await r.json();
+      if (Array.isArray(j?.data)) setLivePromos(j.data as ActivePromotion[]);
+    } catch {
+      // Network/API failure — keep whatever we had (or the data-lake
+      // fallback when nothing was ever loaded).
+    }
+  }, []);
+
   // Sprint 7: desktop (≥1024px) — drives keyboard nav, which stays list-only
   // on mobile but can target the always-visible left pane on desktop.
   const [isDesktop, setIsDesktop] = useState(false);
@@ -316,12 +331,16 @@ export const StaffInbox: React.FC = () => {
         }
       }
     })();
-    pollRef.current = window.setInterval(() => loadThreads(true), 15000);
+    pollRef.current = window.setInterval(() => {
+      loadThreads(true);
+      loadLivePromos();
+    }, 15000);
+    loadLivePromos();
     return () => {
       cancelled = true;
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [loadThreads, openThread]);
+  }, [loadThreads, openThread, loadLivePromos]);
 
   // Auto-scroll to newest message
   useEffect(() => {
@@ -486,9 +505,11 @@ export const StaffInbox: React.FC = () => {
   }, []);
 
   // ---- On-going promo suggestions (matched to this customer) ---------------
+  // Live admin-managed promos when the fetch succeeded (livePromos !== null);
+  // otherwise the local data lake copy as offline fallback.
   const promoSuggestions = useMemo(
-    () => DataLakeService.suggestPromotions(detail?.customer ?? null, 3),
-    [detail?.customer]
+    () => DataLakeService.suggestPromotions(detail?.customer ?? null, 3, livePromos ?? undefined),
+    [detail?.customer, livePromos]
   );
 
   const insertPromo = useCallback((promo: ActivePromotion) => {
