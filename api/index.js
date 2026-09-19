@@ -32114,6 +32114,9 @@ var INTENT_LABEL = {
   order_status: "Order status",
   complaint: "Complaint",
   restock: "Restock",
+  availability: "Availability",
+  delivery: "Delivery",
+  price: "Price",
   question: "Question",
   greeting: "Greeting",
   other: "Other"
@@ -32142,7 +32145,7 @@ var KEYWORDS = {
     "\u0E44\u0E21\u0E48\u0E1E\u0E2D\u0E43\u0E08",
     "\u0E40\u0E2A\u0E35\u0E22\u0E2B\u0E32\u0E22",
     "\u0E2B\u0E21\u0E14\u0E2D\u0E32\u0E22\u0E38",
-    "\u0E1A\u0E39\u0E14",
+    "\u0E1A\u0E48",
     "\u0E2B\u0E37\u0E19",
     "\u0E44\u0E21\u0E48\u0E2A\u0E14",
     "\u0E02\u0E2D\u0E07\u0E1C\u0E34\u0E14",
@@ -32155,20 +32158,20 @@ var KEYWORDS = {
     "\u0E1A\u0E48\u0E19"
   ],
   order_status: [
-    // EN
-    "order status",
-    "track",
-    "tracking",
-    "delivery",
-    "delivered",
+    // EN — multi-word tracking phrases first (they outrank single words)
     "where is my",
     "has it arrived",
     "arrived yet",
-    "ship",
-    "shipped",
-    "cancel my order",
     "when will it arrive",
+    "order status",
     "order number",
+    "cancel my order",
+    "track",
+    "tracking",
+    "shipped",
+    "delivered",
+    "delivery",
+    "ship",
     // TH
     "\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21",
     "\u0E08\u0E31\u0E14\u0E2A\u0E48\u0E07",
@@ -32188,9 +32191,6 @@ var KEYWORDS = {
     "restock",
     "out of stock",
     "back in stock",
-    "in stock",
-    "available",
-    "when will",
     "no more",
     "ran out",
     "reorder",
@@ -32201,15 +32201,63 @@ var KEYWORDS = {
     // TH
     "\u0E02\u0E2D\u0E07\u0E2B\u0E21\u0E14",
     "\u0E2B\u0E21\u0E14\u0E41\u0E25\u0E49\u0E27",
-    "\u0E21\u0E35\u0E02\u0E2D\u0E07\u0E44\u0E2B\u0E21",
     "\u0E2A\u0E31\u0E48\u0E07\u0E0B\u0E49\u0E33",
     "\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19\u0E40\u0E14\u0E34\u0E21",
     "\u0E0B\u0E37\u0E49\u0E2D\u0E0B\u0E49\u0E33",
     "\u0E02\u0E2D\u0E07\u0E21\u0E32\u0E44\u0E2B\u0E21",
     "\u0E40\u0E02\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48",
     "\u0E40\u0E15\u0E34\u0E21",
-    "\u0E2B\u0E21\u0E14\u0E2D\u0E32\u0E22\u0E38\u0E44\u0E2B\u0E21",
     "\u0E21\u0E35\u0E02\u0E2D\u0E07\u0E2D\u0E35\u0E01\u0E44\u0E2B\u0E21"
+  ],
+  availability: [
+    // EN
+    "do you have",
+    "got any",
+    "have any",
+    "in stock",
+    "available",
+    // TH
+    "\u0E21\u0E35\u0E44\u0E2B\u0E21",
+    "\u0E21\u0E35\u0E02\u0E2D\u0E07\u0E44\u0E2B\u0E21",
+    "\u0E21\u0E35\u0E02\u0E2D\u0E07\u0E44\u0E2B\u0E21\u0E04\u0E30",
+    "\u0E21\u0E35\u0E02\u0E32\u0E22\u0E44\u0E2B\u0E21",
+    "\u0E21\u0E35\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E44\u0E2B\u0E21"
+  ],
+  delivery: [
+    // EN
+    "deliver",
+    "delivery",
+    "deliver this",
+    "deliver today",
+    "deliver afternoon",
+    "deliver morning",
+    "can you deliver",
+    "how long",
+    "how fast",
+    "delivery fee",
+    "delivery time",
+    // TH
+    "\u0E2A\u0E48\u0E07\u0E44\u0E2B\u0E21",
+    "\u0E2A\u0E48\u0E07\u0E44\u0E14\u0E49\u0E44\u0E2B\u0E21",
+    "\u0E2A\u0E48\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49",
+    "\u0E2A\u0E48\u0E07\u0E1A\u0E48\u0E32\u0E22",
+    "\u0E2A\u0E48\u0E07\u0E40\u0E0A\u0E49\u0E32",
+    "\u0E01\u0E35\u0E48\u0E42\u0E21\u0E07\u0E16\u0E36\u0E07",
+    "\u0E01\u0E35\u0E48\u0E42\u0E21\u0E07\u0E44\u0E14\u0E49",
+    "\u0E2A\u0E48\u0E07\u0E16\u0E36\u0E07",
+    "\u0E04\u0E48\u0E32\u0E2A\u0E48\u0E07"
+  ],
+  price: [
+    // EN
+    "price",
+    "how much",
+    "cost",
+    "price for",
+    // TH
+    "\u0E40\u0E17\u0E48\u0E32\u0E44\u0E2B\u0E23\u0E48",
+    "\u0E40\u0E17\u0E48\u0E32\u0E44\u0E23",
+    "\u0E23\u0E32\u0E04\u0E32",
+    "\u0E01\u0E35\u0E48\u0E1A\u0E32\u0E17"
   ],
   question: [
     // EN
@@ -32220,21 +32268,15 @@ var KEYWORDS = {
     "why",
     "can i",
     "could you",
-    "price",
-    "how much",
     "promo",
     "discount",
     "voucher",
     "open",
     "hours",
     "location",
-    "delivery fee",
     "payment",
     "accept",
     // TH
-    "\u0E40\u0E17\u0E48\u0E32\u0E44\u0E2B\u0E23\u0E48",
-    "\u0E40\u0E17\u0E48\u0E32\u0E44\u0E23",
-    "\u0E23\u0E32\u0E04\u0E32",
     "\u0E42\u0E1B\u0E23\u0E42\u0E21\u0E0A\u0E31\u0E48\u0E19",
     "\u0E42\u0E1B\u0E23",
     "\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14",
@@ -32242,11 +32284,8 @@ var KEYWORDS = {
     "\u0E40\u0E1B\u0E34\u0E14\u0E01\u0E35\u0E48\u0E42\u0E21\u0E07",
     "\u0E1B\u0E34\u0E14\u0E01\u0E35\u0E48\u0E42\u0E21\u0E07",
     "\u0E2D\u0E22\u0E39\u0E48\u0E17\u0E35\u0E48\u0E44\u0E2B\u0E19",
-    "\u0E2A\u0E48\u0E07\u0E44\u0E2B\u0E21",
     "\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30",
     "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E44\u0E23",
-    "\u0E01\u0E35\u0E48\u0E42\u0E21\u0E07",
-    "\u0E21\u0E35\u0E44\u0E2B\u0E21",
     "\u0E17\u0E33\u0E22\u0E31\u0E07\u0E44\u0E07"
   ],
   greeting: [
@@ -32285,7 +32324,9 @@ function classifyIntent(text) {
   let bestMatched = [];
   for (const intent of Object.keys(KEYWORDS)) {
     const matched = KEYWORDS[intent].filter((k) => norm.includes(normalize(k)));
-    let score = matched.length;
+    if (matched.length === 0) continue;
+    let score = 0;
+    for (const k of matched) score += k.includes(" ") ? 3 : 1;
     if (intent === "question" && hasQuestionMark) score += 1;
     if (score > bestScore) {
       best = intent;
@@ -32297,7 +32338,7 @@ function classifyIntent(text) {
     const others = Object.keys(KEYWORDS).filter((i) => i !== "greeting").some((i) => KEYWORDS[i].some((k) => norm.includes(normalize(k))));
     if (others) best = "other";
   }
-  const confidence = best === "other" ? 40 : Math.min(95, 55 + bestScore * 15);
+  const confidence = best === "other" ? 40 : Math.min(95, 55 + bestScore * 10);
   return { intent: best, label: INTENT_LABEL[best], confidence, matched: bestMatched };
 }
 
@@ -32308,6 +32349,32 @@ function firstName(customer, displayName) {
 }
 function topCategory(customer) {
   return customer?.topCategories?.[0] || "your usual items";
+}
+function extractProductAndQty(text) {
+  const t = (text || "").trim();
+  if (!t) return { product: null, qty: null, unit: null };
+  const qtyM = t.match(/\b(\d+)\s+(packs?|bottles?|bags?|boxes?|cartons?|cans?|units?)/i);
+  const qty = qtyM ? qtyM[1] : null;
+  const unit = qtyM ? qtyM[2] : null;
+  let product = null;
+  const ofM = t.match(/\b(?:of|the)\s+([A-Za-z][A-Za-z\s\-]{2,40}?)(?=\s+(?:packs?|bottles?|bags?|boxes?|cartons?|cans?|units?)\b|[,?.!]|$)/i);
+  if (ofM) product = ofM[1].trim();
+  if (!product) {
+    const likeM = t.match(/\b(?:like|want|need|order|buy|get)\s+(?:the\s+)?([A-Za-z][A-Za-z\s\-]{2,40}?)(?=\s+(?:packs?|bottles?|bags?|boxes?|cartons?|cans?|units?|please)\b|[,?.!]|$)/i);
+    if (likeM) product = likeM[1].trim();
+  }
+  if (!product) {
+    const haveM = t.match(/\bhave\s+(?:the\s+)?([A-Za-z][A-Za-z\s\-]{2,40}?)(?=\s*[?,.!]|$)/i);
+    if (haveM) product = haveM[1].trim();
+  }
+  if (product) {
+    product = product.replace(/\s+(today|now|tonight|this\s+(?:morning|afternoon|evening)|tomorrow|in\s+stock)\s*$/i, "").trim();
+  }
+  return { product, qty, unit };
+}
+function productPhrase(p2) {
+  if (!p2.product) return "";
+  return p2.qty ? `${p2.product} (${p2.qty} ${p2.unit || "pcs"})` : p2.product;
 }
 function generateReplyDraft(intent, customer, lastCustomerText, displayName) {
   const name = firstName(customer, displayName);
@@ -32348,10 +32415,45 @@ function generateReplyDraft(intent, customer, lastCustomerText, displayName) {
 \u0E43\u0E2B\u0E49\u0E08\u0E31\u0E14\u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14\u0E40\u0E25\u0E22\u0E44\u0E2B\u0E21\u0E04\u0E30 \u0E2B\u0E23\u0E37\u0E2D\u0E2D\u0E22\u0E32\u0E01\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E2D\u0E30\u0E44\u0E23\u0E1A\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30`;
       }
       break;
-    case "question":
-      text = `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
-\u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E02\u0E2D\u0E40\u0E0A\u0E47\u0E04\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E41\u0E25\u0E49\u0E27\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\u0E19\u0E30\u0E04\u0E30 \u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E19\u0E35\u0E49${cat}\u0E02\u0E2D\u0E07\u0E2A\u0E14\u0E40\u0E02\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48\u0E1E\u0E2D\u0E14\u0E35\u0E04\u0E48\u0E30 \u0E16\u0E49\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E01\u0E47\u0E1A\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30`;
+    case "availability":
+    case "delivery": {
+      const pAvail = extractProductAndQty(lastCustomerText);
+      const ppAvail = productPhrase(pAvail);
+      if (intent === "availability") {
+        text = ppAvail ? `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+${ppAvail}
+\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E48\u0E07\u0E0B\u0E49\u0E33\u0E43\u0E2B\u0E49\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30
+` : `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+\u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E02\u0E2D\u0E40\u0E0A\u0E47\u0E04\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E41\u0E25\u0E49\u0E27\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\u0E19\u0E30\u0E04\u0E30  \u0E16\u0E49\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E01\u0E47\u0E1A\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30`;
+      } else {
+        text = ppAvail ? `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+${ppAvail}
+\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E40\u0E0A\u0E47\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30 \u0E41\u0E25\u0E49\u0E27\u0E2A\u0E48\u0E07\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E01\u0E32\u0E23\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E1E\u0E31\u0E2A\u0E14\u0E38\u0E21\u0E32\u0E43\u0E2B\u0E49\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E04\u0E48\u0E30
+` : `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+\u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E02\u0E2D\u0E40\u0E0A\u0E47\u0E04\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E41\u0E25\u0E49\u0E27\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\u0E19\u0E30\u0E04\u0E30  \u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E40\u0E0A\u0E47\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30 \u0E41\u0E25\u0E49\u0E27\u0E2A\u0E48\u0E07\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E01\u0E32\u0E23\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E1E\u0E31\u0E2A\u0E14\u0E38\u0E21\u0E32\u0E43\u0E2B\u0E49\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E04\u0E48\u0E30
+`;
+      }
       break;
+    }
+    case "price": {
+      const pPrice = extractProductAndQty(lastCustomerText);
+      const ppPrice = productPhrase(pPrice);
+      text = ppPrice ? `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+${ppPrice}
+\u0E16\u0E49\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E01\u0E47\u0E1A\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30` : `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+\u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E02\u0E2D\u0E40\u0E0A\u0E47\u0E04\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E41\u0E25\u0E49\u0E27\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\u0E19\u0E30\u0E04\u0E30  \u0E16\u0E49\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E01\u0E47\u0E1A\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30`;
+      break;
+    }
+    case "question": {
+      const pQ = extractProductAndQty(lastCustomerText);
+      const ppQ = productPhrase(pQ);
+      text = ppQ ? `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+${ppQ}
+\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E48\u0E07\u0E0B\u0E49\u0E33\u0E43\u0E2B\u0E49\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30
+` : `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E22\u0E34\u0E19\u0E14\u0E35\u0E0A\u0E48\u0E27\u0E22\u0E15\u0E2D\u0E1A\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30!
+\u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E02\u0E2D\u0E40\u0E0A\u0E47\u0E04\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E41\u0E25\u0E49\u0E27\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\u0E19\u0E30\u0E04\u0E30  \u0E16\u0E49\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22\u0E01\u0E47\u0E1A\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E19\u0E30\u0E04\u0E30`;
+      break;
+    }
     default:
       text = `\u0E04\u0E38\u0E13${name} \u0E04\u0E48\u0E30 \u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E21\u0E32\u0E19\u0E30\u0E04\u0E30 \u{1F64F}
 \u0E0A\u0E48\u0E27\u0E22\u0E02\u0E22\u0E32\u0E22\u0E04\u0E27\u0E32\u0E21\u0E2D\u0E35\u0E01\u0E19\u0E34\u0E14\u0E44\u0E14\u0E49\u0E44\u0E2B\u0E21\u0E04\u0E30 \u0E08\u0E30\u0E44\u0E14\u0E49\u0E15\u0E2D\u0E1A\u0E44\u0E14\u0E49\u0E15\u0E23\u0E07\u0E43\u0E08\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14\u0E04\u0E48\u0E30`;

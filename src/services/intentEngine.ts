@@ -2,6 +2,10 @@ import { CustomerProfile } from '../types';
 
 /**
  * Sprint 2 — Intent detection + next-best-action.
+ * Sprint 12 — reweighting: multi-word phrases outrank single words, a bare
+ * `?` can no longer win on its own, and order-tracking phrases outrank the
+ * generic 'where'/'when' question words. New retail intents: availability,
+ * delivery, price.
  *
  * Pure keyword/regex rules (EN + TH), no API key required.
  * Classifies the customer's last message and derives a next-best-action
@@ -12,6 +16,9 @@ export type Intent =
   | 'order_status'
   | 'complaint'
   | 'restock'
+  | 'availability'
+  | 'delivery'
+  | 'price'
   | 'question'
   | 'greeting'
   | 'other';
@@ -32,6 +39,9 @@ export const INTENT_LABEL: Record<Intent, string> = {
   order_status: 'Order status',
   complaint: 'Complaint',
   restock: 'Restock',
+  availability: 'Availability',
+  delivery: 'Delivery',
+  price: 'Price',
   question: 'Question',
   greeting: 'Greeting',
   other: 'Other',
@@ -46,36 +56,55 @@ const KEYWORDS: Record<Exclude<Intent, 'other'>, string[]> = {
     'wrong item', 'wrong order', 'missing item', 'short', 'disappointed',
     'refund', 'return', 'problem with', 'issue with', 'sorry', 'unacceptable',
     // TH
-    'ไม่พอใจ', 'เสียหาย', 'หมดอายุ', 'บูด', 'หืน', 'ไม่สด', 'ของผิด',
+    'ไม่พอใจ', 'เสียหาย', 'หมดอายุ', 'บ่', 'หืน', 'ไม่สด', 'ของผิด',
     'สั่งผิด', 'ขอคืน', 'คืนเงิน', 'ร้องเรียน', 'ไม่อร่อย', 'ขาด', 'บ่น',
   ],
   order_status: [
-    // EN
-    'order status', 'track', 'tracking', 'delivery', 'delivered', 'where is my',
-    'has it arrived', 'arrived yet', 'ship', 'shipped', 'cancel my order',
-    'when will it arrive', 'order number',
+    // EN — multi-word tracking phrases first (they outrank single words)
+    'where is my', 'has it arrived', 'arrived yet', 'when will it arrive',
+    'order status', 'order number', 'cancel my order', 'track', 'tracking',
+    'shipped', 'delivered', 'delivery', 'ship',
     // TH
     'ติดตาม', 'จัดส่ง', 'ส่งของ', 'ของถึง', 'ถึงแล้ว', 'ยังไม่ถึง', 'รึยัง',
     'สถานะ', 'ยกเลิก', 'ออเดอร์', 'ออเดอร์ถึง', 'พัสดุ',
   ],
   restock: [
     // EN
-    'restock', 'out of stock', 'back in stock', 'in stock', 'available',
-    'when will', 'no more', 'ran out', 'reorder', 'order again',
-    'same as last time', 'buy again', 'need more',
+    'restock', 'out of stock', 'back in stock', 'no more', 'ran out',
+    'reorder', 'order again', 'same as last time', 'buy again', 'need more',
     // TH
-    'ของหมด', 'หมดแล้ว', 'มีของไหม', 'สั่งซ้ำ', 'สั่งเหมือนเดิม', 'ซื้อซ้ำ',
-    'ของมาไหม', 'เข้าใหม่', 'เติม', 'หมดอายุไหม', 'มีของอีกไหม',
+    'ของหมด', 'หมดแล้ว', 'สั่งซ้ำ', 'สั่งเหมือนเดิม', 'ซื้อซ้ำ',
+    'ของมาไหม', 'เข้าใหม่', 'เติม', 'มีของอีกไหม',
+  ],
+  availability: [
+    // EN
+    'do you have', 'got any', 'have any', 'in stock', 'available',
+    // TH
+    'มีไหม', 'มีของไหม', 'มีของไหมคะ', 'มีขายไหม', 'มีเหลือไหม',
+  ],
+  delivery: [
+    // EN
+    'deliver', 'delivery', 'deliver this', 'deliver today', 'deliver afternoon',
+    'deliver morning', 'can you deliver', 'how long', 'how fast',
+    'delivery fee', 'delivery time',
+    // TH
+    'ส่งไหม', 'ส่งได้ไหม', 'ส่งวันนี้', 'ส่งบ่าย', 'ส่งเช้า', 'กี่โมงถึง',
+    'กี่โมงได้', 'ส่งถึง', 'ค่าส่ง',
+  ],
+  price: [
+    // EN
+    'price', 'how much', 'cost', 'price for',
+    // TH
+    'เท่าไหร่', 'เท่าไร', 'ราคา', 'กี่บาท',
   ],
   question: [
     // EN
-    'how', 'what', 'when', 'where', 'why', 'can i', 'could you', 'price',
-    'how much', 'promo', 'discount', 'voucher', 'open', 'hours', 'location',
-    'delivery fee', 'payment', 'accept',
+    'how', 'what', 'when', 'where', 'why', 'can i', 'could you',
+    'promo', 'discount', 'voucher', 'open', 'hours', 'location',
+    'payment', 'accept',
     // TH
-    'เท่าไหร่', 'เท่าไร', 'ราคา', 'โปรโมชั่น', 'โปร', 'ส่วนลด', 'คูปอง',
-    'เปิดกี่โมง', 'ปิดกี่โมง', 'อยู่ที่ไหน', 'ส่งไหม', 'รับชำระ', 'อย่างไร',
-    'กี่โมง', 'มีไหม', 'ทำยังไง',
+    'โปรโมชั่น', 'โปร', 'ส่วนลด', 'คูปอง',
+    'เปิดกี่โมง', 'ปิดกี่โมง', 'อยู่ที่ไหน', 'รับชำระ', 'อย่างไร', 'ทำยังไง',
   ],
   greeting: [
     // EN
@@ -107,8 +136,12 @@ export function classifyIntent(text: string): IntentResult {
 
   for (const intent of Object.keys(KEYWORDS) as Array<Exclude<Intent, 'other'>>) {
     const matched = KEYWORDS[intent].filter(k => norm.includes(normalize(k)));
-    let score = matched.length;
-    // A question mark strongly supports "question"
+    if (matched.length === 0) continue;
+    // Multi-word phrases are stronger signals than single words.
+    let score = 0;
+    for (const k of matched) score += k.includes(' ') ? 3 : 1;
+    // A question mark supports "question" — but it can NEVER win on its own.
+    // At least one real keyword must fire for question to be a candidate.
     if (intent === 'question' && hasQuestionMark) score += 1;
     if (score > bestScore) {
       best = intent;
@@ -126,7 +159,7 @@ export function classifyIntent(text: string): IntentResult {
     if (others) best = 'other';
   }
 
-  const confidence = best === 'other' ? 40 : Math.min(95, 55 + bestScore * 15);
+  const confidence = best === 'other' ? 40 : Math.min(95, 55 + bestScore * 10);
   return { intent: best, label: INTENT_LABEL[best], confidence, matched: bestMatched };
 }
 
@@ -164,6 +197,12 @@ export function nextBestAction(
       };
     case 'order_status':
       return { label: 'Check order status & share tracking', tone: 'standard' };
+    case 'availability':
+      return { label: 'Confirm stock + offer to take the order', tone: 'opportunity' };
+    case 'delivery':
+      return { label: 'Confirm delivery window + take the order', tone: 'opportunity' };
+    case 'price':
+      return { label: 'Quote price + attach relevant promo', tone: 'standard' };
     case 'greeting':
       return customer.rfmSegment === 'Champions'
         ? { label: 'Greet + push 5X points offer', tone: 'opportunity' }

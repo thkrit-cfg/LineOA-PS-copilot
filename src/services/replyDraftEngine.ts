@@ -25,6 +25,44 @@ function topCategory(customer: CustomerProfile | null): string {
 }
 
 /**
+ * Pull the product name + quantity (+ unit) out of the customer's message so
+ * the draft can echo them back — answer-shaped, not a deferral. Returns nulls
+ * when nothing detectable; the caller falls back to the original friendly text.
+ */
+function extractProductAndQty(text: string): { product: string | null; qty: string | null; unit: string | null } {
+  const t = (text || '').trim();
+  if (!t) return { product: null, qty: null, unit: null };
+
+  // "I'd like 2 packs" / "2 packs of the organic salad"
+  const qtyM = t.match(/\b(\d+)\s+(packs?|bottles?|bags?|boxes?|cartons?|cans?|units?)/i);
+  const qty = qtyM ? qtyM[1] : null;
+  const unit = qtyM ? qtyM[2] : null;
+
+  let product: string | null = null;
+  const ofM = t.match(/\b(?:of|the)\s+([A-Za-z][A-Za-z\s\-]{2,40}?)(?=\s+(?:packs?|bottles?|bags?|boxes?|cartons?|cans?|units?)\b|[,?.!]|$)/i);
+  if (ofM) product = ofM[1].trim();
+  if (!product) {
+    const likeM = t.match(/\b(?:like|want|need|order|buy|get)\s+(?:the\s+)?([A-Za-z][A-Za-z\s\-]{2,40}?)(?=\s+(?:packs?|bottles?|bags?|boxes?|cartons?|cans?|units?|please)\b|[,?.!]|$)/i);
+    if (likeM) product = likeM[1].trim();
+  }
+  if (!product) {
+    const haveM = t.match(/\bhave\s+(?:the\s+)?([A-Za-z][A-Za-z\s\-]{2,40}?)(?=\s*[?,.!]|$)/i);
+    if (haveM) product = haveM[1].trim();
+  }
+  // Drop trailing filler/time words that leaked into the product capture.
+  if (product) {
+    product = product.replace(/\s+(today|now|tonight|this\s+(?:morning|afternoon|evening)|tomorrow|in\s+stock)\s*$/i, '').trim();
+  }
+  return { product, qty, unit };
+}
+
+/** Human echo of the detected product + quantity, e.g. "organic hydroponic salad (2 packs)". */
+function productPhrase(p: { product: string | null; qty: string | null; unit: string | null }): string {
+  if (!p.product) return '';
+  return p.qty ? `${p.product} (${p.qty} ${p.unit || 'pcs'})` : p.product;
+}
+
+/**
  * Build a ready-to-edit suggested reply from intent + CRM state.
  * Pure function: safe to run client-side as an offline fallback.
  */
@@ -89,12 +127,60 @@ export function generateReplyDraft(
       }
       break;
 
-    case 'question':
-      text =
-        `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
-        `เดี๋ยวขอเช็คข้อมูลให้เรียบร้อยแล้วตอบกลับตรงนี้ทันทีนะคะ ระหว่างนี้${cat}ของสดเข้าใหม่พอดีค่ะ ` +
-        `ถ้าอยากสั่งเพิ่มให้เลยก็บอกได้เลยนะคะ`;
+    case 'availability':
+    case 'delivery': {
+      // Answer-shaped: echo the detected product + quantity, then an
+      // affirmative (availability) or tracking (delivery) line. No bare
+      // "let me check" deferral as the only content.
+      const pAvail = extractProductAndQty(lastCustomerText);
+      const ppAvail = productPhrase(pAvail);
+      if (intent === 'availability') {
+        text = ppAvail
+          ? `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+            `${ppAvail}\n` +
+            `คุณ${name} ค่ะ จัดการสั่งซ้ำให้ได้เลยนะคะ\n`
+          : `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+            `เดี๋ยวขอเช็คข้อมูลให้เรียบร้อยแล้วตอบกลับตรงนี้ทันทีนะคะ  ` +
+            `ถ้าอยากสั่งเพิ่มให้เลยก็บอกได้เลยนะคะ`;
+      } else {
+        text = ppAvail
+          ? `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+            `${ppAvail}\n` +
+            `คุณ${name} ค่ะ เดี๋ยวเช็กสถานะออเดอร์ให้เลยนะคะ แล้วส่งรายละเอียดการติดตามพัสดุมาให้ตรงนี้ค่ะ\n`
+          : `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+            `เดี๋ยวขอเช็คข้อมูลให้เรียบร้อยแล้วตอบกลับตรงนี้ทันทีนะคะ  ` +
+            `คุณ${name} ค่ะ เดี๋ยวเช็กสถานะออเดอร์ให้เลยนะคะ แล้วส่งรายละเอียดการติดตามพัสดุมาให้ตรงนี้ค่ะ\n`;
+      }
       break;
+    }
+
+    case 'price': {
+      const pPrice = extractProductAndQty(lastCustomerText);
+      const ppPrice = productPhrase(pPrice);
+      text = ppPrice
+        ? `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+          `${ppPrice}\n` +
+          `ถ้าอยากสั่งเพิ่มให้เลยก็บอกได้เลยนะคะ`
+        : `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+          `เดี๋ยวขอเช็คข้อมูลให้เรียบร้อยแล้วตอบกลับตรงนี้ทันทีนะคะ  ` +
+          `ถ้าอยากสั่งเพิ่มให้เลยก็บอกได้เลยนะคะ`;
+      break;
+    }
+
+    case 'question': {
+      // Product-aware: when a product/qty is detected, echo it and give an
+      // affirmative answer; otherwise keep the original friendly text.
+      const pQ = extractProductAndQty(lastCustomerText);
+      const ppQ = productPhrase(pQ);
+      text = ppQ
+        ? `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+          `${ppQ}\n` +
+          `คุณ${name} ค่ะ จัดการสั่งซ้ำให้ได้เลยนะคะ\n`
+        : `คุณ${name} ค่ะ ยินดีช่วยตอบเลยค่ะ!\n` +
+          `เดี๋ยวขอเช็คข้อมูลให้เรียบร้อยแล้วตอบกลับตรงนี้ทันทีนะคะ  ` +
+          `ถ้าอยากสั่งเพิ่มให้เลยก็บอกได้เลยนะคะ`;
+      break;
+    }
 
     default:
       text =
