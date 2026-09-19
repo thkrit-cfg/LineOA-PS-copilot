@@ -270,6 +270,26 @@ export function createApp() {
     });
   });
 
+  // Mark a thread done / snoozed / re-activated (inbox queue management).
+  app.post('/api/inbox/threads/:lineUid/status', async (req: Request, res: Response) => {
+    const { status, snoozeUntil } = req.body || {};
+    if (!['active', 'snoozed', 'done'].includes(status)) {
+      return res.status(400).json({ error: 'status must be active, snoozed, or done' });
+    }
+    const lineUid = String(req.params.lineUid);
+    try {
+      const thread = await inboxStore.setStatus(
+        lineUid,
+        status,
+        typeof snoozeUntil === 'number' ? snoozeUntil : 0
+      );
+      if (!thread) return res.status(404).json({ error: 'Thread not found' });
+      res.json({ success: true, status: thread.status, snoozeUntil: thread.snoozeUntil });
+    } catch (err: any) {
+      res.status(500).json({ error: 'failed to update thread status', message: err?.message });
+    }
+  });
+
   // Link an (unmapped) thread's LINE UID to a CRM customer — used when staff
   // finds the customer by phone/name and links them to this LINE account.
   app.post('/api/inbox/threads/:lineUid/link', async (req: Request, res: Response) => {

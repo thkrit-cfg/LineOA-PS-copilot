@@ -6,7 +6,7 @@
  * Fallback: in-memory Map (resets per serverless invocation — fine for local
  * dev and degraded mode when DATABASE_URL is absent).
  *
- * Schema (auto-created on first use):
+ * Schema (auto-created on first use; new columns added via ALTER on upgrade):
  *   inbox_threads(
  *     line_uid TEXT PRIMARY KEY,
  *     customer_crm_id TEXT,
@@ -16,6 +16,8 @@
  *     messages JSONB NOT NULL DEFAULT '[]',
  *     unread INTEGER NOT NULL DEFAULT 0,
  *     last_ts BIGINT NOT NULL DEFAULT 0,
+ *     status TEXT NOT NULL DEFAULT 'active',        -- active | snoozed | done
+ *     snooze_until BIGINT NOT NULL DEFAULT 0,       -- ms epoch, 0 = not snoozed
  *     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
  *   )
  *
@@ -30,6 +32,8 @@ export interface InboxMessage {
   ts: number;
 }
 
+export type ThreadStatus = 'active' | 'snoozed' | 'done';
+
 export interface Thread {
   lineUid: string;
   customerCrmId: string | null;
@@ -39,6 +43,8 @@ export interface Thread {
   messages: InboxMessage[];
   unread: number;
   lastTs: number;
+  status: ThreadStatus;
+  snoozeUntil: number;
 }
 
 export interface ThreadSummary {
@@ -48,9 +54,12 @@ export interface ThreadSummary {
   avatarUrl?: string;
   isLineFriend: boolean;
   lastText: string;
+  lastFrom: 'customer' | 'staff' | null;
   lastTs: number;
   unread: number;
-  /** Sprint 3: value-priority score (0–100) + flags — enriched by the API. */
+  status: ThreadStatus;
+  snoozeUntil: number;
+  /** Sprint 3: value-priority score (0-100) + flags — enriched by the API. */
   priority?: number;
   priorityFlags?: Array<'high_value' | 'at_risk'>;
 }
@@ -70,6 +79,8 @@ interface InboxStore {
     crmCustomerId: string,
     identity?: { displayName?: string; avatarUrl?: string }
   ): Promise<Thread | null>;
+  /** Mark a thread done / snoozed (with optional resume time) / re-activate. */
+  setStatus(lineUid: string, status: ThreadStatus, snoozeUntil?: number): Promise<Thread | null>;
   listThreads(): Promise<ThreadSummary[]>;
   getThread(lineUid: string): Promise<Thread | null>;
   health(): Promise<{ store: 'neon' | 'memory'; reachable: boolean | null; threads: number }>;
@@ -88,19 +99,26 @@ let schemaReady: Promise<void> | null = null;
 function ensureSchema(): Promise<void> {
   if (!useNeon || !sql) return Promise.resolve();
   if (!schemaReady) {
-    schemaReady = sql`
-      CREATE TABLE IF NOT EXISTS inbox_threads (
-        line_uid TEXT PRIMARY KEY,
-        customer_crm_id TEXT,
-        display_name TEXT NOT NULL DEFAULT 'LINE User',
-        avatar_url TEXT,
-        is_line_friend BOOLEAN NOT NULL DEFAULT FALSE,
-        messages JSONB NOT NULL DEFAULT '[]',
-        unread INTEGER NOT NULL DEFAULT 0,
-        last_ts BIGINT NOT NULL DEFAULT 0,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-    `
+    schemaReady = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS inbox_threads (
+          line_uid TEXT PRIMARY KEY,
+          customer_crm_id TEXT,
+          display_name TEXT NOT NULL DEFAULT 'LINE User',
+          avatar_url TEXT,
+          is_line_friend BOOLEAN NOT NULL DEFAULT FALSE,
+          messages JSONB NOT NULL DEFAULT '[]',
+          unread INTEGER NOT NULL DEFAULT 0,
+          last_ts BIGINT NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'active',
+          snooze_until BIGINT NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+      `;
+      // Upgrade tables created before status/snooze existed.
+      await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`;
+      await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS snooze_until BIGINT NOT NULL DEFAULT 0`;
+    })()
       .then(() => undefined)
       .catch(err => {
         schemaReady = null; // allow retry on transient failure
@@ -120,6 +138,8 @@ function rowToThread(r: any): Thread {
     messages: Array.isArray(r.messages) ? (r.messages as InboxMessage[]) : [],
     unread: Number(r.unread),
     lastTs: Number(r.last_ts),
+    status: (r.status as ThreadStatus) || 'active',
+    snoozeUntil: Number(r.snooze_until || 0),
   };
 }
 
@@ -132,6 +152,8 @@ function newThread(lineUid: string): Thread {
     messages: [],
     unread: 0,
     lastTs: 0,
+    status: 'active',
+    snoozeUntil: 0,
   };
 }
 
@@ -145,8 +167,11 @@ function summarize(t: Thread): ThreadSummary {
     avatarUrl: t.avatarUrl,
     isLineFriend: t.isLineFriend,
     lastText: last ? last.text : '',
+    lastFrom: last ? last.from : null,
     lastTs: t.lastTs,
     unread: t.unread,
+    status: t.status,
+    snoozeUntil: t.snoozeUntil,
   };
 }
 
@@ -165,10 +190,11 @@ async function upsertThread(
     mutate(thread);
     await sql`
       INSERT INTO inbox_threads
-        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, updated_at)
+        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, status, snooze_until, updated_at)
       VALUES
         (${thread.lineUid}, ${thread.customerCrmId}, ${thread.displayName}, ${thread.avatarUrl ?? null},
-         ${thread.isLineFriend}, ${JSON.stringify(thread.messages)}::jsonb, ${thread.unread}, ${thread.lastTs}, now())
+         ${thread.isLineFriend}, ${JSON.stringify(thread.messages)}::jsonb, ${thread.unread}, ${thread.lastTs},
+         ${thread.status}, ${thread.snoozeUntil}, now())
       ON CONFLICT (line_uid) DO UPDATE SET
         customer_crm_id = EXCLUDED.customer_crm_id,
         display_name = EXCLUDED.display_name,
@@ -177,6 +203,8 @@ async function upsertThread(
         messages = EXCLUDED.messages,
         unread = EXCLUDED.unread,
         last_ts = EXCLUDED.last_ts,
+        status = EXCLUDED.status,
+        snooze_until = EXCLUDED.snooze_until,
         updated_at = now()
     `;
     return thread;
@@ -200,6 +228,9 @@ export const inboxStore: InboxStore = {
       t.messages.push({ id: newMessageId(), from: 'customer', text, ts: Date.now() });
       t.unread += 1;
       t.lastTs = Date.now();
+      // A new customer message re-activates a snoozed/done thread.
+      t.status = 'active';
+      t.snoozeUntil = 0;
     });
   },
 
@@ -215,6 +246,13 @@ export const inboxStore: InboxStore = {
       t.customerCrmId = crmCustomerId;
       if (identity?.displayName) t.displayName = identity.displayName;
       if (identity?.avatarUrl) t.avatarUrl = identity.avatarUrl;
+    });
+  },
+
+  async setStatus(lineUid, status, snoozeUntil = 0) {
+    return upsertThread(lineUid, t => {
+      t.status = status;
+      t.snoozeUntil = status === 'snoozed' ? snoozeUntil : 0;
     });
   },
 
