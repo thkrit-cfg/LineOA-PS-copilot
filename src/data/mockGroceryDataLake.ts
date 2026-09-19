@@ -1,4 +1,4 @@
-import { CustomerProfile, GroceryProduct, SegmentRule, LineStaffUser } from '../types';
+import { ActivePromotion, CustomerProfile, GroceryProduct, SegmentRule, LineStaffUser } from '../types';
 
 export const THAI_BRANCHES = [
   'All Branches (National)',
@@ -185,6 +185,94 @@ export const INITIAL_PRODUCTS: GroceryProduct[] = [
     isPromo: false,
     shelfLifeDays: 360,
   }
+];
+
+// On-going promotions staff can offer mid-conversation.
+// Dates are kept relative to "now" at module load so the demo always has
+// live promos; swap for a real promo API when available.
+const now = new Date();
+const iso = (days: number) => {
+  const d = new Date(now);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+export const ACTIVE_PROMOTIONS: ActivePromotion[] = [
+  {
+    id: 'PROMO-FRESH15',
+    code: 'FRESH15WED',
+    title: '15% Off Organic Vegetables',
+    description: 'Royal Project & organic produce, max ฿150 off. Fresh Wednesday pick.',
+    promoType: 'CATEGORY_DISCOUNT_15PCT',
+    eligibleCategories: ['Fresh Produce'],
+    minSpend: 200,
+    maxDiscount: 150,
+    startsAt: iso(-2),
+    endsAt: iso(4),
+    active: true,
+  },
+  {
+    id: 'PROMO-GOURMETPAIR',
+    code: 'GOURMETPAIR',
+    title: 'Gourmet Pairing: Free Japanese Sauce',
+    description: 'Buy 2 cuts of premium Australian beef, get a free Kikkoman marinade (฿145).',
+    promoType: 'ONE_GET_ONE_FREE',
+    eligibleCategories: ['Butcher & Seafood'],
+    eligibleSkus: ['SKU-MEAT-003'],
+    minSpend: 700,
+    startsAt: iso(-1),
+    endsAt: iso(6),
+    minTier: ['GOLD', 'PLATINUM_VIP'],
+    active: true,
+  },
+  {
+    id: 'PROMO-PANTRYSHIP',
+    code: 'PANTRYSHIP',
+    title: 'Free Express Delivery on Pantry Restock',
+    description: 'Milk, eggs, rice & oil orders over ฿500 ship free within the hour.',
+    promoType: 'FREE_EXPRESS_DELIVERY',
+    eligibleCategories: ['Dairy & Eggs', 'Pantry & Staples'],
+    minSpend: 500,
+    startsAt: iso(-5),
+    endsAt: iso(9),
+    active: true,
+  },
+  {
+    id: 'PROMO-IMPORT100',
+    code: 'IMPORT100',
+    title: '฿100 Off Imported Gourmet',
+    description: 'Japanese grapes, salmon & imported snacks — ฿100 off orders over ฿1,000.',
+    promoType: 'INSTANT_CASH_VOUCHER',
+    eligibleCategories: ['Imported Gourmet'],
+    minSpend: 1000,
+    maxDiscount: 100,
+    startsAt: iso(0),
+    endsAt: iso(12),
+    active: true,
+  },
+  {
+    id: 'PROMO-POINTS5X',
+    code: 'THE1X5',
+    title: 'The 1 Points 5× This Weekend',
+    description: 'Earn 5× The 1 points on all fresh & dairy purchases, Sat–Sun only.',
+    promoType: 'THE_1_POINTS_X5',
+    eligibleCategories: ['Fresh Produce', 'Dairy & Eggs'],
+    startsAt: iso(1),
+    endsAt: iso(3),
+    active: true,
+  },
+  {
+    id: 'PROMO-LINK100',
+    code: 'LINK100THB',
+    title: '฿100 Off When You Link Your The 1 Card',
+    description: 'One-time welcome coupon for followers who link their The 1 card to LINE.',
+    promoType: 'INSTANT_CASH_VOUCHER',
+    eligibleCategories: [],
+    maxDiscount: 100,
+    startsAt: iso(-30),
+    endsAt: iso(60),
+    active: true,
+  },
 ];
 
 export const INITIAL_CUSTOMERS: CustomerProfile[] = [

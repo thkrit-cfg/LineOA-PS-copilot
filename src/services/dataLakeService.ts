@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
-import { CustomerProfile, GroceryProduct, SegmentRule, PushMessageLog } from '../types';
-import { INITIAL_CUSTOMERS, INITIAL_PRODUCTS, INITIAL_SEGMENT_RULES } from '../data/mockGroceryDataLake';
+import { ActivePromotion, CustomerProfile, GroceryProduct, SegmentRule, PushMessageLog } from '../types';
+import { ACTIVE_PROMOTIONS, INITIAL_CUSTOMERS, INITIAL_PRODUCTS, INITIAL_SEGMENT_RULES } from '../data/mockGroceryDataLake';
 
 const STORAGE_KEYS = {
   CUSTOMERS: 'tops_line_datalake_customers',
@@ -55,6 +55,70 @@ export class DataLakeService {
   public static getSegments(): SegmentRule[] {
     this.init();
     return [...this.segments];
+  }
+
+  /** All currently-live promotions (within their date window, active flag on). */
+  public static getActivePromotions(): ActivePromotion[] {
+    const today = new Date().toISOString().slice(0, 10);
+    return ACTIVE_PROMOTIONS.filter(
+      p => p.active && p.startsAt <= today && p.endsAt >= today
+    );
+  }
+
+  /**
+   * Rank live promotions for a specific customer, best fit first.
+   * Signals: promo type they prefer, categories they buy, tier eligibility.
+   * Returns up to `limit` with a short "why" reason for the staff UI.
+   */
+  public static suggestPromotions(
+    customer: CustomerProfile | null | undefined,
+    limit = 3
+  ): Array<{ promo: ActivePromotion; reason: string }> {
+    const promos = this.getActivePromotions();
+    if (!customer) {
+      // No CRM link: only the universal "link your card" offer is relevant.
+      return promos
+        .filter(p => p.id === 'PROMO-LINK100')
+        .slice(0, limit)
+        .map(p => ({ promo: p, reason: 'Unlocks member pricing after linking' }));
+    }
+
+    const scored = promos.map(p => {
+      let score = 0;
+      const reasons: string[] = [];
+
+      if (p.minTier && !p.minTier.includes(customer.tier)) {
+        return { promo: p, score: -1, reason: '' }; // not eligible
+      }
+
+      if (p.promoType === customer.preferredPromoType) {
+        score += 40;
+        reasons.push('matches their preferred offer type');
+      }
+      const catOverlap = p.eligibleCategories.filter(c =>
+        customer.topCategories.includes(c)
+      );
+      if (catOverlap.length > 0) {
+        score += 25 + catOverlap.length * 5;
+        reasons.push(`covers ${catOverlap[0]}`);
+      }
+      if (p.id === 'PROMO-LINK100' && customer.lineUid) {
+        return { promo: p, score: -1, reason: '' }; // already linked
+      }
+      if (customer.rfmSegment === 'At Risk' || customer.rfmSegment === 'Need Attention') {
+        if (p.maxDiscount || p.promoType === 'ONE_GET_ONE_FREE') {
+          score += 15;
+          reasons.push('strong win-back incentive');
+        }
+      }
+      return { promo: p, score, reason: reasons.join(', ') || 'currently running' };
+    });
+
+    return scored
+      .filter(s => s.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(s => ({ promo: s.promo, reason: s.reason }));
   }
 
   public static getPushLogs(): PushMessageLog[] {

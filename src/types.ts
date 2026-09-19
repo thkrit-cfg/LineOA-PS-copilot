@@ -82,6 +82,22 @@ export interface UpsellRecommendation {
   suggestedPromo: string;
 }
 
+export interface ActivePromotion {
+  id: string;
+  code: string; // e.g. FRESH15
+  title: string; // e.g. "15% Off Organic Vegetables"
+  description: string; // one-line detail staff can share
+  promoType: PromoType;
+  eligibleCategories: string[]; // product categories this applies to
+  eligibleSkus?: string[]; // if set, only these SKUs (else all eligible categories)
+  startsAt: string; // ISO date
+  endsAt: string; // ISO date
+  minSpend?: number; // baht
+  maxDiscount?: number; // baht cap
+  minTier?: CustomerTier[]; // if set, only these tiers (else all)
+  active: boolean;
+}
+
 export interface SegmentRule {
   id: string;
   name: string;

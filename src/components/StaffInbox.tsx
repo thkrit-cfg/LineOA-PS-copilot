@@ -25,14 +25,16 @@ import {
   Crown,
   PenLine,
   X,
+  Tag,
 } from 'lucide-react';
-import { CustomerProfile, CustomerTier, UpsellRecommendation } from '../types';
+import { CustomerProfile, CustomerTier, UpsellRecommendation, ActivePromotion } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
 import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
 import { computeCustomerValue, CustomerValue } from '../services/attributionEngine';
 import { generateReplyDraft } from '../services/replyDraftEngine';
+import { DataLakeService } from '../services/dataLakeService';
 
 // ---- API types (mirror docs/inbox-api-contract.md) --------------------------
 interface InboxMessage {
@@ -354,6 +356,25 @@ export const StaffInbox: React.FC = () => {
     setDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${msg}` : msg));
   }, []);
 
+  // ---- On-going promo suggestions (matched to this customer) ---------------
+  const promoSuggestions = useMemo(
+    () => DataLakeService.suggestPromotions(detail?.customer ?? null, 3),
+    [detail?.customer]
+  );
+
+  const insertPromo = useCallback((promo: ActivePromotion) => {
+    const ends = new Date(promo.endsAt).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+    });
+    const msg =
+      `🎁 On-going promo: ${promo.title}\n` +
+      `📝 ${promo.description}\n` +
+      `🏷️ Code: ${promo.code} (valid until ${ends})\n\n` +
+      `Want me to apply it to your next order?`;
+    setDraft(prev => (prev.trim() ? `${prev.trim()}\n\n${msg}` : msg));
+  }, []);
+
   // ---- Sprint 5: AI reply drafting (offline-first) --------------------------
   const [draftPreview, setDraftPreview] = useState<string | null>(null);
   const [draftSource, setDraftSource] = useState<'template' | 'llm'>('template');
@@ -515,6 +536,33 @@ export const StaffInbox: React.FC = () => {
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {recs.map(rec => (
                   <RecCard key={rec.product.sku} rec={rec} onInsert={insertRec} />
+                ))}
+              </div>
+            </div>
+          )}
+          {promoSuggestions.length > 0 && (
+            <div className="px-3 pb-2.5 pt-0.5 shrink-0">
+              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-300 mb-1.5">
+                <Tag className="w-3 h-3" />
+                On-going promos — tap to offer
+              </div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {promoSuggestions.map(({ promo, reason }) => (
+                  <button
+                    key={promo.id}
+                    onClick={() => insertPromo(promo)}
+                    className="min-w-[150px] max-w-[170px] shrink-0 text-left rounded-xl bg-[#0b0f17] border border-amber-500/25 hover:border-amber-400/50 px-2.5 py-2 transition-colors"
+                  >
+                    <div className="text-[11px] font-bold text-white truncate">{promo.title}</div>
+                    <div className="mt-0.5 text-[9px] text-slate-500 font-mono">
+                      {promo.code} · ends{' '}
+                      {new Date(promo.endsAt).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                      })}
+                    </div>
+                    <div className="mt-1 text-[9px] text-amber-300/80 truncate">{reason}</div>
+                  </button>
                 ))}
               </div>
             </div>
