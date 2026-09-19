@@ -191,6 +191,10 @@ export function createApp() {
         });
         return {
           ...s,
+          // A linked thread's display name is the CRM customer (authoritative
+          // business identity) — overrides a raw LINE profile name that may
+          // differ (e.g. personal LINE name "GRIT" vs CRM name "Nattaporn").
+          displayName: customer?.fullName || s.displayName,
           rfmSegment: customer?.rfmSegment,
           tier: customer?.tier,
           ltv: customer?.totalSpendLtv,
@@ -233,6 +237,9 @@ export function createApp() {
       res.json({
         data: {
           ...summary,
+          // Linked thread: CRM customer is the authoritative display name
+          // (overrides a raw LINE profile name that may differ).
+          displayName: customer?.fullName || summary.displayName,
           unread: preUnread,
           messages: thread.messages,
           repliedBy: thread.repliedBy ?? null,
@@ -393,13 +400,15 @@ export function createApp() {
       return res.status(404).json({ error: 'Customer not found' });
     }
     const existing = await inboxStore.getThread(lineUid);
-    // Prefer a real LINE profile name; otherwise use the CRM customer's name
-    // — the stale 'LINE User' placeholder must NOT win over customer.fullName,
-    // or the thread keeps showing "LINE User" after linking.
+    // A linked thread's identity is the CRM customer — that is the
+    // authoritative business identity. The CRM fullName wins over the raw
+    // LINE profile name (which can differ, e.g. a personal LINE display name
+    // like "GRIT" vs the CRM name "Nattaporn"). Fall back to the stored
+    // display name / lineDisplayName only if the CRM record has no fullName.
     const realName =
-      existing?.displayName && existing.displayName !== 'LINE User'
-        ? existing.displayName
-        : customer.lineDisplayName || customer.fullName;
+      customer.fullName ||
+      customer.lineDisplayName ||
+      (existing?.displayName && existing.displayName !== 'LINE User' ? existing.displayName : 'LINE User');
     // Map the customer's LINE UID in the CRM so future messages auto-match.
     mockDb.mapLineUid(crmCustomerId, lineUid, realName);
     // Link the thread to the customer + refresh identity.
@@ -529,11 +538,11 @@ export function createApp() {
     // no secret is configured.
     if (channelSecret) {
       if (!signature) {
-        return res.status(403).json({ error: 'Missing LINE signature' });
+        return res.status(401).json({ error: 'Missing LINE signature' });
       }
       const isValid = verifyLineSignature(req.rawBody || JSON.stringify(req.body), signature, channelSecret);
       if (!isValid) {
-        return res.status(403).json({ error: 'Invalid LINE signature' });
+        return res.status(401).json({ error: 'Invalid LINE signature' });
       }
     }
 

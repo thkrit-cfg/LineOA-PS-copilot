@@ -32594,6 +32594,10 @@ function createApp() {
         });
         return {
           ...s,
+          // A linked thread's display name is the CRM customer (authoritative
+          // business identity) — overrides a raw LINE profile name that may
+          // differ (e.g. personal LINE name "GRIT" vs CRM name "Nattaporn").
+          displayName: customer?.fullName || s.displayName,
           rfmSegment: customer?.rfmSegment,
           tier: customer?.tier,
           ltv: customer?.totalSpendLtv,
@@ -32625,6 +32629,9 @@ function createApp() {
       res.json({
         data: {
           ...summary,
+          // Linked thread: CRM customer is the authoritative display name
+          // (overrides a raw LINE profile name that may differ).
+          displayName: customer?.fullName || summary.displayName,
           unread: preUnread,
           messages: thread.messages,
           repliedBy: thread.repliedBy ?? null,
@@ -32761,7 +32768,7 @@ function createApp() {
       return res.status(404).json({ error: "Customer not found" });
     }
     const existing = await inboxStore.getThread(lineUid);
-    const realName = existing?.displayName && existing.displayName !== "LINE User" ? existing.displayName : customer.lineDisplayName || customer.fullName;
+    const realName = customer.fullName || customer.lineDisplayName || (existing?.displayName && existing.displayName !== "LINE User" ? existing.displayName : "LINE User");
     mockDb.mapLineUid(crmCustomerId, lineUid, realName);
     const thread = await inboxStore.linkCrm(lineUid, crmCustomerId, {
       displayName: realName,
@@ -32852,11 +32859,11 @@ function createApp() {
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
     if (channelSecret) {
       if (!signature) {
-        return res.status(403).json({ error: "Missing LINE signature" });
+        return res.status(401).json({ error: "Missing LINE signature" });
       }
       const isValid = verifyLineSignature(req.rawBody || JSON.stringify(req.body), signature, channelSecret);
       if (!isValid) {
-        return res.status(403).json({ error: "Invalid LINE signature" });
+        return res.status(401).json({ error: "Invalid LINE signature" });
       }
     }
     const events = req.body?.events || [];
