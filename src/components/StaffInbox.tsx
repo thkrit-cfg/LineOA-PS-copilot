@@ -26,6 +26,7 @@ import {
   PenLine,
   X,
   Tag,
+  Clock,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier, UpsellRecommendation, ActivePromotion } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
@@ -52,6 +53,8 @@ interface ThreadSummary {
   lastText: string;
   lastTs: number;
   unread: number;
+  status?: 'active' | 'snoozed' | 'done';
+  snoozeUntil?: number;
   rfmSegment?: string;
   tier?: CustomerTier;
   ltv?: number;
@@ -176,6 +179,10 @@ export const StaffInbox: React.FC = () => {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'snoozed' | 'done'>('all');
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const listScrollRef = useRef<HTMLDivElement>(null);
 
   const [activeUid, setActiveUid] = useState<string | null>(null);
   const [detail, setDetail] = useState<ThreadDetail | null>(null);
@@ -347,8 +354,66 @@ export const StaffInbox: React.FC = () => {
         return b.lastTs - a.lastTs;
       });
     }
+    // Status filter (the snooze/done queue).
+    if (statusFilter !== 'all') {
+      const filtered = arr.filter(t => (t.status || 'active') === statusFilter);
+      arr.length = 0;
+      arr.push(...filtered);
+    }
+    // Search: name, LINE uid, CRM id, or last message.
+    const q = query.trim().toLowerCase();
+    if (q) {
+      return arr.filter(t =>
+        t.displayName?.toLowerCase().includes(q) ||
+        t.lineUid.toLowerCase().includes(q) ||
+        (t.customerCrmId && t.customerCrmId.toLowerCase().includes(q)) ||
+        t.lastText?.toLowerCase().includes(q)
+      );
+    }
     return arr;
-  }, [threads, sortMode]);
+  }, [threads, sortMode, statusFilter, query]);
+
+  // Keyboard nav on the list view: ↑/↓ move, Enter opens, Esc clears search.
+  useEffect(() => {
+    if (activeUid) return; // only on the list view
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        if (e.key === 'Escape') (e.target as HTMLElement).blur();
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const n = sortedThreads.length;
+        if (!n) return;
+        setHighlightIdx(i => {
+          const next =
+            e.key === 'ArrowDown' ? Math.min(i + 1, n - 1) : Math.max(i - 1, 0);
+          // Keep the highlighted row in view.
+          requestAnimationFrame(() => {
+            listScrollRef.current
+              ?.querySelector('[data-hl="1"]')
+              ?.scrollIntoView({ block: 'nearest' });
+          });
+          return next;
+        });
+      } else if (e.key === 'Enter') {
+        if (highlightIdx >= 0 && sortedThreads[highlightIdx]) {
+          openThread(sortedThreads[highlightIdx].lineUid);
+        }
+      } else if (e.key === 'Escape') {
+        setQuery('');
+        setHighlightIdx(-1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeUid, sortedThreads, highlightIdx, openThread]);
+
+  // Reset highlight when the visible list changes shape.
+  useEffect(() => {
+    setHighlightIdx(-1);
+  }, [query, statusFilter, sortMode]);
 
   // ---- Sprint 2: intent + next-best-action (last customer message) ---------
   const lastCustomerMsg = useMemo(() => {
@@ -843,8 +908,52 @@ export const StaffInbox: React.FC = () => {
         </button>
       </div>
 
+      {/* Search + status filter */}
+      <div className="border-b border-slate-800/60 bg-[#0b0f17] px-4 py-2 flex items-center gap-2 shrink-0">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search name, LINE ID, CRM…"
+            className="w-full bg-[#0d131f] border border-slate-800 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center rounded-lg bg-[#0d131f] border border-slate-800 p-0.5">
+          {(
+            [
+              ['all', 'All'],
+              ['active', 'Active'],
+              ['snoozed', 'Snoozed'],
+              ['done', 'Done'],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              onClick={() => setStatusFilter(mode)}
+              className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${
+                statusFilter === mode
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={listScrollRef}>
         {listError && (
           <div className="m-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
             {listError}
@@ -865,16 +974,21 @@ export const StaffInbox: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-800/60">
             <AnimatePresence>
-              {sortedThreads.map(t => {
+              {sortedThreads.map((t, idx) => {
                 const flags = t.priorityFlags || [];
                 const atRisk = flags.includes('at_risk');
                 const highValue = flags.includes('high_value');
+                const st = t.status || 'active';
+                const hl = idx === highlightIdx;
                 return (
                 <button
                   key={t.lineUid}
+                  data-hl={hl ? '1' : undefined}
                   onClick={() => openThread(t.lineUid)}
                   className={`w-full text-left px-4 py-3 hover:bg-slate-800/40 flex items-center gap-3 ${
-                    atRisk ? 'border-l-2 border-l-red-500/70 bg-red-500/[0.04]' : ''
+                    hl ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/40' : ''
+                  } ${
+                    atRisk && !hl ? 'border-l-2 border-l-red-500/70 bg-red-500/[0.04]' : ''
                   }`}
                 >
                   <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shrink-0 relative overflow-hidden">
@@ -917,6 +1031,18 @@ export const StaffInbox: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {st === 'snoozed' && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-sky-500/15 text-sky-300 border-sky-400/40">
+                          <Clock className="w-2.5 h-2.5" />
+                          Snoozed
+                        </span>
+                      )}
+                      {st === 'done' && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-slate-500/15 text-slate-400 border-slate-500/30">
+                          <CheckCheck className="w-2.5 h-2.5" />
+                          Done
+                        </span>
+                      )}
                       {highValue && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-amber-500/15 text-amber-300 border-amber-400/40">
                           <Crown className="w-2.5 h-2.5" />
