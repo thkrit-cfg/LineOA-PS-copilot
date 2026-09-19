@@ -21,9 +21,8 @@ import {
   Sparkles,
   Zap,
   Flame,
-  Crown,
-  PenLine,
-  X,
+   Crown,
+   X,
   Tag,
   Clock,
 } from 'lucide-react';
@@ -835,13 +834,13 @@ export const StaffInbox: React.FC = () => {
             <button
               onClick={makeDraft}
               disabled={drafting}
-              className="w-11 h-11 shrink-0 rounded-full bg-[#0b0f17] border border-slate-700 hover:border-emerald-500 text-emerald-300 flex items-center justify-center disabled:opacity-40"
-              title="Draft a reply"
+              className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-b from-emerald-950/60 to-[#0b0f17] border border-slate-700 hover:border-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] text-emerald-300 flex items-center justify-center disabled:opacity-40"
+              title="AI draft a reply"
             >
               {drafting ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <PenLine className="w-5 h-5" />
+                <Sparkles className="w-5 h-5" />
               )}
             </button>
             <textarea
