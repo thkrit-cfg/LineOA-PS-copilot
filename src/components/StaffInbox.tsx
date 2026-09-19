@@ -8,12 +8,11 @@ import {
   User,
   Check,
   CheckCheck,
+  CheckCircle2,
   Loader2,
   ShieldCheck,
   CreditCard,
   TrendingUp,
-  ShoppingBag,
-  Layers,
   Inbox,
   RefreshCw,
   Wifi,
@@ -28,12 +27,12 @@ import {
   Tag,
   Clock,
 } from 'lucide-react';
-import { CustomerProfile, CustomerTier, UpsellRecommendation, ActivePromotion } from '../types';
+import { CustomerProfile, CustomerTier, UpsellRecommendation, ActivePromotion, PromoType } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
+import { ProfilePanel } from './ProfilePanel';
 import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
-import { computeCustomerValue, CustomerValue } from '../services/attributionEngine';
 import { generateReplyDraft } from '../services/replyDraftEngine';
 import { DataLakeService } from '../services/dataLakeService';
 
@@ -92,6 +91,14 @@ const SEGMENT_BADGE: Record<string, string> = {
   'Need Attention': 'bg-amber-500/15 text-amber-300 border-amber-400/30',
   'New Follower': 'bg-slate-500/15 text-slate-300 border-slate-500/30',
 };
+const PROMO_LABEL: Record<PromoType, string> = {
+  INSTANT_CASH_VOUCHER: 'Instant cash voucher',
+  ONE_GET_ONE_FREE: 'Buy 1 Get 1 Free',
+  THE_1_POINTS_X5: 'The 1 Points x5',
+  FREE_EXPRESS_DELIVERY: 'Free express delivery',
+  BUNDLE_CROSS_SELL: 'Bundle deal',
+  CATEGORY_DISCOUNT_15PCT: '15% category discount',
+};
 
 function fmtTime(ts: number): string {
   if (!ts) return '';
@@ -117,61 +124,76 @@ function fmtFull(ts: number): string {
 
 const fmtBaht = (n: number) => `฿${n.toLocaleString()}`;
 
-// ---- CRM chip row (compact, shown in thread header) -------------------------
-const CrmStrip: React.FC<{ customer: CustomerProfile }> = ({ customer }) => (
-  <div className="px-3 pb-2.5 pt-1 space-y-1.5 shrink-0">
-    {/* Row 1: identity — segment, tier, The 1 card */}
-    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-      <span
-        className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-          SEGMENT_BADGE[customer.rfmSegment] || 'bg-slate-500/15 text-slate-300 border-slate-500/30'
-        }`}
-      >
-        {customer.rfmSegment}
-      </span>
-      <span
-        className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-black tracking-wider border ${
-          TIER_BADGE[customer.tier] || TIER_BADGE.MEMBER
-        }`}
-      >
-        {TIER_LABEL[customer.tier] || customer.tier}
-      </span>
-      <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-300 flex items-center gap-1">
-        <CreditCard className="w-3 h-3 text-slate-500" />
-        <span className="font-mono">{customer.the1CardNo}</span>
-      </span>
-    </div>
-    {/* Row 2: key metrics */}
-    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar text-[10px] text-slate-400">
-      <span className="shrink-0 flex items-center gap-1">
-        <TrendingUp className="w-3 h-3 text-emerald-400" />
-        <span className="text-slate-500">LTV</span>
-        <span className="font-bold text-white">{fmtBaht(customer.totalSpendLtv)}</span>
-      </span>
-      <span className="shrink-0 flex items-center gap-1">
-        <ShoppingBag className="w-3 h-3 text-amber-400" />
-        <span className="text-slate-500">AOV</span>
-        <span className="font-bold text-white">{fmtBaht(customer.aov)}</span>
-      </span>
-      <span className="shrink-0 flex items-center gap-1">
-        <span className="text-slate-500">Orders</span>
-        <span className="font-bold text-white">{customer.orderCount}</span>
-      </span>
-      <span className="shrink-0 flex items-center gap-1">
-        <span className="text-slate-500">Last</span>
-        <span className={`font-bold ${customer.daysSinceLastPurchase > 21 ? 'text-red-400' : 'text-white'}`}>
-          {customer.daysSinceLastPurchase}d
+// ---- Compact CRM strip (single scrollable row under the thread header) ------
+// Tap anywhere → ProfilePanel. Tap the card chip → copy The 1 card number.
+const CrmCompactStrip: React.FC<{ customer: CustomerProfile; onOpen: () => void }> = ({
+  customer,
+  onOpen,
+}) => {
+  const [copied, setCopied] = useState(false);
+  const copyCard = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(customer.the1CardNo);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+  return (
+    <div
+      onClick={onOpen}
+      role="button"
+      title="Open customer profile"
+      className="px-3 pb-2.5 pt-1 shrink-0 cursor-pointer"
+    >
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <span
+          className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-bold border ${
+            SEGMENT_BADGE[customer.rfmSegment] || 'bg-slate-500/15 text-slate-300 border-slate-500/30'
+          }`}
+        >
+          {customer.rfmSegment}
         </span>
-      </span>
-      {customer.topCategories?.length > 0 && (
-        <span className="shrink-0 flex items-center gap-1 text-slate-500">
-          <Layers className="w-3 h-3" />
-          {customer.topCategories.slice(0, 2).join(', ')}
+        <button
+          onClick={copyCard}
+          title="Copy The 1 card number"
+          className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[#0b0f17] border border-slate-800 text-slate-300 flex items-center gap-1"
+        >
+          {copied ? (
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+          ) : (
+            <CreditCard className="w-3 h-3 text-slate-500" />
+          )}
+          <span className="font-mono">{customer.the1CardNo}</span>
+        </button>
+        <span className="shrink-0 flex items-center gap-1 text-[10px] text-slate-400">
+          <TrendingUp className="w-3 h-3 text-emerald-400" />
+          <span className="text-slate-500">LTV</span>
+          <span className="font-bold text-white">{fmtBaht(customer.totalSpendLtv)}</span>
         </span>
-      )}
+        <span className="shrink-0 flex items-center gap-1 text-[10px] text-slate-400">
+          <span className="text-slate-500">Last</span>
+          <span className={`font-bold ${customer.daysSinceLastPurchase > 21 ? 'text-red-400' : 'text-white'}`}>
+            {customer.daysSinceLastPurchase}d
+          </span>
+        </span>
+        {customer.dietaryPreferences?.slice(0, 2).map(tag => (
+          <span
+            key={tag}
+            className="shrink-0 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 text-[10px] font-medium border border-emerald-500/20"
+          >
+            {tag}
+          </span>
+        ))}
+        <span className="shrink-0 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 text-[10px] font-medium border border-amber-500/20">
+          prefers: {PROMO_LABEL[customer.preferredPromoType]}
+        </span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ---- Main component ----------------------------------------------------------
 export const StaffInbox: React.FC = () => {
@@ -190,7 +212,7 @@ export const StaffInbox: React.FC = () => {
 
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [crmOpen, setCrmOpen] = useState(false);
-  const [crmMode, setCrmMode] = useState<'view' | 'link'>('view');
+  const [profileOpen, setProfileOpen] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkState, setLinkState] = useState<{ ok: boolean; msg?: string } | null>(null);
 
@@ -250,7 +272,7 @@ export const StaffInbox: React.FC = () => {
     setDetailLoading(true);
     setSendState(null);
     setCrmOpen(false);
-    setCrmMode('view');
+    setProfileOpen(false);
     setLinkState(null);
     setDraftPreview(null);
     // Restore any unsent draft saved for this thread (survives refresh).
@@ -434,12 +456,6 @@ export const StaffInbox: React.FC = () => {
     [intentResult, detail?.customer]
   );
 
-  // ---- Sprint 4: revenue attribution (value strip) --------------------------
-  const value: CustomerValue | null = useMemo(
-    () => (detail?.customer ? computeCustomerValue(detail.customer) : null),
-    [detail?.customer]
-  );
-
   // ---- Sprint 1: in-chat copilot recs (mapped customers only) ---------------
   const recs = useMemo(
     () => (detail?.customer ? getPersonalizedRecommendations(detail.customer).slice(0, 3) : []),
@@ -541,14 +557,10 @@ export const StaffInbox: React.FC = () => {
     [activeUid, linking, openThread, loadThreads]
   );
 
-  const openCrm = useCallback(
-    (mode: 'view' | 'link') => {
-      setCrmMode(mode);
-      setLinkState(null);
-      setCrmOpen(true);
-    },
-    []
-  );
+  const openCrm = useCallback(() => {
+    setLinkState(null);
+    setCrmOpen(true);
+  }, []);
 
   // ---- Thread detail view ----------------------------------------------------
   if (activeUid && detail) {
@@ -576,20 +588,23 @@ export const StaffInbox: React.FC = () => {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm text-white truncate">{detail.displayName}</div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-bold text-sm text-white truncate">{detail.displayName}</span>
+                {c && (
+                  <span
+                    className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border ${
+                      TIER_BADGE[c.tier] || TIER_BADGE.MEMBER
+                    }`}
+                  >
+                    {TIER_LABEL[c.tier]}
+                  </span>
+                )}
+              </div>
               <div className="text-[10px] text-slate-500 font-mono truncate">{detail.lineUid}</div>
             </div>
-            {c ? (
+            {!c && (
               <button
-                onClick={() => openCrm('view')}
-                className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold flex items-center gap-1"
-              >
-                <Search className="w-3.5 h-3.5" />
-                CRM
-              </button>
-            ) : (
-              <button
-                onClick={() => openCrm('link')}
+                onClick={openCrm}
                 className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center gap-1"
               >
                 <Link2 className="w-3.5 h-3.5" />
@@ -597,36 +612,7 @@ export const StaffInbox: React.FC = () => {
               </button>
             )}
           </div>
-          {c && <CrmStrip customer={c} />}
-          {c && value && (
-            <div className="px-3 pb-2.5 pt-0.5 shrink-0">
-              <div className="rounded-xl bg-[#0b0f17] border border-slate-800 px-3 py-2 flex items-center gap-4 overflow-x-auto no-scrollbar">
-                <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3 text-emerald-400" />
-                  LTV
-                  <span className="font-bold text-white">{fmtBaht(value.totalLtv)}</span>
-                </span>
-                <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1">
-                  <ShoppingBag className="w-3 h-3 text-amber-400" />
-                  Last order
-                  <span className="font-bold text-white">{fmtBaht(value.lastOrderValue)}</span>
-                </span>
-                <span className="text-[10px] text-slate-500 shrink-0 flex items-center gap-1">
-                  <Layers className="w-3 h-3 text-blue-400" />
-                  30d
-                  <span className={`font-bold ${value.value30d > 0 ? 'text-emerald-300' : 'text-slate-400'}`}>
-                    {fmtBaht(value.value30d)}
-                  </span>
-                </span>
-                <span
-                  className="ml-auto text-[10px] shrink-0 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold"
-                  title="Estimated value of this conversation to protect"
-                >
-                  Conversation ≈ {fmtBaht(value.conversationValue)}
-                </span>
-              </div>
-            </div>
-          )}
+          {c && <CrmCompactStrip customer={c} onOpen={() => setProfileOpen(true)} />}
           {c && recs.length > 0 && (
             <div className="px-3 pb-2.5 pt-0.5 shrink-0">
               <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 mb-1.5">
@@ -692,9 +678,9 @@ export const StaffInbox: React.FC = () => {
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 bg-[#eae5dc]">
           {detail.messages.length === 0 && (
-            <div className="text-center text-slate-600 text-xs py-10">No messages yet</div>
+            <div className="text-center text-slate-500 text-xs py-10">No messages yet</div>
           )}
           {detail.messages.map((m, i) => {
             const mine = m.from === 'staff';
@@ -704,20 +690,20 @@ export const StaffInbox: React.FC = () => {
             return (
               <div key={m.id}>
                 {showTime && (
-                  <div className="text-center text-[10px] text-slate-600 my-2">{fmtFull(m.ts)}</div>
+                  <div className="text-center text-[10px] text-slate-500 my-2">{fmtFull(m.ts)}</div>
                 )}
                 <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[78%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed ${
                       mine
-                        ? 'bg-emerald-600 text-white rounded-br-md'
-                        : 'bg-[#1a2130] text-slate-100 rounded-bl-md'
+                        ? 'bg-[#06c755] text-white rounded-br-md'
+                        : 'bg-white text-slate-900 rounded-bl-md'
                     }`}
                   >
                     <p className="whitespace-pre-wrap break-words">{m.text}</p>
                     <div
                       className={`text-[9px] mt-0.5 flex items-center gap-1 ${
-                        mine ? 'text-emerald-200/80 justify-end' : 'text-slate-500'
+                        mine ? 'text-white/70 justify-end' : 'text-slate-400'
                       }`}
                     >
                       {fmtTime(m.ts)}
@@ -725,7 +711,7 @@ export const StaffInbox: React.FC = () => {
                     </div>
                     {isLastCustomer && intentResult && (
                       <div className="mt-1.5 flex items-center gap-1">
-                        <span className="px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-400/40 text-indigo-300 text-[9px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-300 text-indigo-700 text-[9px] font-bold">
                           {intentResult.label}
                         </span>
                         <span className="text-[9px] text-slate-500">{intentResult.confidence}%</span>
@@ -833,7 +819,7 @@ export const StaffInbox: React.FC = () => {
             <button
               onClick={sendReply}
               disabled={!draft.trim() || sending}
-              className="w-11 h-11 shrink-0 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 flex items-center justify-center"
+              className="w-11 h-11 shrink-0 rounded-full bg-[#06c755] hover:bg-[#05b34c] disabled:opacity-40 flex items-center justify-center"
             >
               {sending ? (
                 <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -848,13 +834,16 @@ export const StaffInbox: React.FC = () => {
           open={crmOpen}
           onClose={() => setCrmOpen(false)}
           customers={customers}
-          onOpenCustomer={crmMode === 'link' ? linkCustomer : undefined}
-          activeLine={
-            crmMode === 'link'
-              ? { lineUid: activeUid, displayName: detail.displayName }
-              : null
-          }
+          onOpenCustomer={linkCustomer}
+          activeLine={{ lineUid: activeUid, displayName: detail.displayName }}
         />
+        {c && (
+          <ProfilePanel
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            customer={c}
+          />
+        )}
       </div>
     );
   }
