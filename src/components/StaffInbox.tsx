@@ -23,12 +23,13 @@ import {
   Flame,
    Crown,
    X,
-  Tag,
-  Clock,
+   Tag,
+   Clock,
+   PanelRightOpen,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier, UpsellRecommendation, ActivePromotion, PromoType } from '../types';
 import { CustomerCrmDrawer } from './CustomerCrmDrawer';
-import { ProfilePanel, ProfileHeader, ProfileBody } from './ProfilePanel';
+import { ProfilePanel, ProfileHeader, ProfileBody, ProfileSummaryBar, TIER_SHORT, firstName } from './ProfilePanel';
 import { RecCard } from './RecCard';
 import { getPersonalizedRecommendations } from '../services/recommendationEngine';
 import { classifyIntent, nextBestAction, NextBestAction } from '../services/intentEngine';
@@ -212,6 +213,8 @@ export const StaffInbox: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [crmOpen, setCrmOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileMinimized, setProfileMinimized] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkState, setLinkState] = useState<{ ok: boolean; msg?: string } | null>(null);
 
@@ -298,6 +301,8 @@ export const StaffInbox: React.FC = () => {
     setSendState(null);
     setCrmOpen(false);
     setProfileOpen(false);
+    setProfileMinimized(false);
+    setInspectorCollapsed(false);
     setLinkState(null);
     setDraftPreview(null);
     // Restore any unsent draft saved for this thread (survives refresh).
@@ -652,7 +657,15 @@ export const StaffInbox: React.FC = () => {
               </button>
             )}
           </div>
-          {c && <CrmCompactStrip customer={c} onOpen={() => setProfileOpen(true)} />}
+          {c && (
+            <CrmCompactStrip
+              customer={c}
+              onOpen={() => {
+                setProfileOpen(true);
+                setProfileMinimized(false);
+              }}
+            />
+          )}
           {c && recs.length > 0 && (
             <div className="px-3 pb-2.5 pt-0.5 shrink-0">
               <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 mb-1.5">
@@ -769,6 +782,11 @@ export const StaffInbox: React.FC = () => {
           )}
         </div>
 
+        {/* Minimized profile — compact bar above the composer */}
+        {c && profileOpen && profileMinimized && (
+          <ProfileSummaryBar customer={c} onExpand={() => setProfileMinimized(false)} />
+        )}
+
         {/* Composer */}
         <div className="border-t border-slate-800 bg-[#0d131f] px-3 py-2.5 shrink-0">
           {linkState && (
@@ -874,10 +892,42 @@ export const StaffInbox: React.FC = () => {
 
         {/* Right pane — CRM inspector (desktop only): permanent column bound to
             the open thread's customer. Unlinked threads get a link prompt. */}
-        <div className="hidden md:flex md:w-[340px] lg:w-[380px] shrink-0 flex-col border-l border-slate-800 bg-[#0d131f] min-h-0">
-          {c ? (
+        <div
+          className={`hidden md:flex shrink-0 flex-col border-l border-slate-800 bg-[#0d131f] min-h-0 ${
+            inspectorCollapsed && c ? 'md:w-14' : 'md:w-[340px] lg:w-[380px]'
+          }`}
+        >
+          {inspectorCollapsed && c ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0 py-4">
+              {c.lineAvatarUrl ? (
+                <img
+                  src={c.lineAvatarUrl}
+                  alt={c.fullName}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-slate-700"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-sm">
+                  {firstName(c.fullName).charAt(0)}
+                </div>
+              )}
+              <span
+                className={`px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider border ${
+                  TIER_BADGE[c.tier] || TIER_BADGE.MEMBER
+                }`}
+              >
+                {TIER_SHORT[c.tier]}
+              </span>
+              <button
+                onClick={() => setInspectorCollapsed(false)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                title="Expand inspector"
+              >
+                <PanelRightOpen className="w-4 h-4" />
+              </button>
+            </div>
+          ) : c ? (
             <>
-              <ProfileHeader customer={c} />
+              <ProfileHeader customer={c} onCollapse={() => setInspectorCollapsed(true)} />
               <ProfileBody customer={c} />
             </>
           ) : (
@@ -912,8 +962,12 @@ export const StaffInbox: React.FC = () => {
         />
         {c && (
           <ProfilePanel
-            open={profileOpen}
-            onClose={() => setProfileOpen(false)}
+            open={profileOpen && !profileMinimized}
+            onClose={() => {
+              setProfileOpen(false);
+              setProfileMinimized(false);
+            }}
+            onMinimize={() => setProfileMinimized(true)}
             customer={c}
           />
         )}

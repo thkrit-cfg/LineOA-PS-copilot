@@ -13,6 +13,11 @@ import {
   ShieldAlert,
   StickyNote,
   Phone,
+  ChevronDown,
+  ChevronUp,
+  PanelRightClose,
+  TrendingUp,
+  Clock,
 } from 'lucide-react';
 import { CustomerProfile, CustomerTier } from '../types';
 
@@ -335,10 +340,12 @@ export const ProfileBody: React.FC<{ customer: CustomerProfile }> = ({ customer 
 // Avatar + name + CRM id + segment + tier. Used by the mobile sheet header and
 // the permanent desktop inspector column (no close button there).
 
-export const ProfileHeader: React.FC<{ customer: CustomerProfile; onClose?: () => void }> = ({
-  customer,
-  onClose,
-}) => {
+export const ProfileHeader: React.FC<{
+  customer: CustomerProfile;
+  onClose?: () => void;
+  onMinimize?: () => void;
+  onCollapse?: () => void;
+}> = ({ customer, onClose, onMinimize, onCollapse }) => {
   const tier = TIER_STYLES[customer.tier] || TIER_STYLES.MEMBER;
   return (
     <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-3 shrink-0">
@@ -361,16 +368,99 @@ export const ProfileHeader: React.FC<{ customer: CustomerProfile; onClose?: () =
           <span className="text-[10px] text-slate-500 truncate">{tier.label}</span>
         </div>
       </div>
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0"
-          title="Close"
-        >
-          <X className="w-4 h-4" />
-        </button>
+      {(onMinimize || onCollapse || onClose) && (
+        <div className="flex items-center gap-1 shrink-0">
+          {onMinimize && (
+            <button
+              onClick={onMinimize}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+              title="Minimize"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          )}
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+              title="Collapse inspector"
+            >
+              <PanelRightClose className="w-4 h-4" />
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       )}
     </div>
+  );
+};
+
+// ---- Profile summary bar (minimized sheet) ------------------------------------
+//
+// Compact strip shown in place of the open sheet when staff minimize the
+// profile: name + tier chip + LTV + AOV + last purchase. Tap to re-open the
+// full sheet. Rendered above the composer by StaffInbox.
+
+export const ProfileSummaryBar: React.FC<{ customer: CustomerProfile; onExpand: () => void }> = ({
+  customer,
+  onExpand,
+}) => {
+  const tier = TIER_STYLES[customer.tier] || TIER_STYLES.MEMBER;
+  return (
+    <button
+      onClick={onExpand}
+      title="Expand customer profile"
+      className="w-full border-t border-slate-800 bg-[#0d131f] px-3 py-2 flex items-center gap-2.5 text-left hover:bg-[#0b0f17] transition-colors"
+    >
+      {customer.lineAvatarUrl ? (
+        <img
+          src={customer.lineAvatarUrl}
+          alt={customer.fullName}
+          className="w-8 h-8 rounded-full object-cover border border-slate-700 shrink-0"
+        />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 text-xs font-bold shrink-0">
+          {firstName(customer.fullName).charAt(0)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-bold text-xs text-white truncate">{customer.fullName}</span>
+          <span
+            className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border ${tier.badge}`}
+          >
+            {TIER_SHORT[customer.tier]}
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5 mt-0.5 text-[10px] text-slate-400">
+          <span className="flex items-center gap-1">
+            <TrendingUp className="w-3 h-3 text-emerald-400" />
+            <span className="text-slate-500">LTV</span>
+            <span className="font-bold text-white">฿{customer.totalSpendLtv.toLocaleString()}</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-slate-500">AOV</span>
+            <span className="font-bold text-amber-300">฿{customer.aov.toLocaleString()}</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3 text-slate-500" />
+            <span className="text-slate-500">Last</span>
+            <span className={`font-bold ${customer.daysSinceLastPurchase > 21 ? 'text-red-400' : 'text-white'}`}>
+              {customer.daysSinceLastPurchase}d
+            </span>
+          </span>
+        </div>
+      </div>
+      <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
+    </button>
   );
 };
 
@@ -384,10 +474,11 @@ export const ProfileHeader: React.FC<{ customer: CustomerProfile; onClose?: () =
 interface ProfilePanelProps {
   open: boolean;
   onClose: () => void;
+  onMinimize?: () => void;
   customer: CustomerProfile;
 }
 
-export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, customer }) => {
+export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, onMinimize, customer }) => {
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -423,7 +514,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ open, onClose, custo
           <div className="w-10 h-1 rounded-full bg-slate-700" />
         </div>
 
-        <ProfileHeader customer={customer} onClose={onClose} />
+        <ProfileHeader customer={customer} onClose={onClose} onMinimize={onMinimize} />
 
         <ProfileBody customer={customer} />
       </motion.div>
