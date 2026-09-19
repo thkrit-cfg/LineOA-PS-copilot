@@ -202,7 +202,7 @@ export const StaffInbox: React.FC = () => {
       .catch(() => setCustomers([]));
   }, []);
 
-  const loadThreads = useCallback(async (silent = false) => {
+  const loadThreads = useCallback(async (silent = false): Promise<ThreadSummary[]> => {
     if (!silent) setListLoading(true);
     try {
       const res = await fetch('/api/inbox/health');
@@ -210,23 +210,33 @@ export const StaffInbox: React.FC = () => {
       setOnline(health.store === 'neon' ? health.reachable !== false : true);
       const r = await fetch('/api/inbox/threads');
       const j = await r.json();
-      setThreads(Array.isArray(j?.data) ? j.data : []);
+      const data: ThreadSummary[] = Array.isArray(j?.data) ? j.data : [];
+      setThreads(data);
       setListError(null);
+      return data;
     } catch (e: any) {
       setOnline(false);
       setListError(e?.message || 'Failed to load inbox');
+      return [];
     } finally {
       setListLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadThreads();
-    pollRef.current = window.setInterval(() => loadThreads(true), 15000);
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    };
-  }, [loadThreads]);
+    // Remember which thread is open so a refresh resumes it.
+    // (Only write when set — never clear on mount, or we'd wipe the saved
+    //  thread before the mount effect below gets a chance to resume it.)
+    if (activeUid) localStorage.setItem('ps-inbox-active', activeUid);
+  }, [activeUid]);
+
+  // Persist the unsent composer draft per thread so a refresh keeps it.
+  useEffect(() => {
+    if (!activeUid) return;
+    const key = `ps-inbox-draft:${activeUid}`;
+    if (draft) localStorage.setItem(key, draft);
+    else localStorage.removeItem(key);
+  }, [draft, activeUid]);
 
   const openThread = useCallback(async (lineUid: string) => {
     setActiveUid(lineUid);
@@ -236,6 +246,8 @@ export const StaffInbox: React.FC = () => {
     setCrmMode('view');
     setLinkState(null);
     setDraftPreview(null);
+    // Restore any unsent draft saved for this thread (survives refresh).
+    setDraft(localStorage.getItem(`ps-inbox-draft:${lineUid}`) || '');
     try {
       const r = await fetch(`/api/inbox/threads/${lineUid}`);
       const j = await r.json();
@@ -247,6 +259,29 @@ export const StaffInbox: React.FC = () => {
       setDetailLoading(false);
     }
   }, []);
+
+  // Mount: load the list, then resume the last-open thread after a refresh.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const data = await loadThreads();
+      if (cancelled) return;
+      const saved = localStorage.getItem('ps-inbox-active');
+      if (saved) {
+        if (data.some(t => t.lineUid === saved)) {
+          openThread(saved);
+        } else {
+          // Saved thread no longer exists — drop the stale reference.
+          localStorage.removeItem('ps-inbox-active');
+        }
+      }
+    })();
+    pollRef.current = window.setInterval(() => loadThreads(true), 15000);
+    return () => {
+      cancelled = true;
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
+  }, [loadThreads, openThread]);
 
   // Auto-scroll to newest message
   useEffect(() => {
