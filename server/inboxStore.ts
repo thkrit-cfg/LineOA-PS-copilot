@@ -180,7 +180,7 @@ function newThread(lineUid: string): Thread {
 }
 
 // ---- shared logic ----------------------------------------------------------
-function summarize(t: Thread): ThreadSummary {
+export function summarize(t: Thread): ThreadSummary {
   const last = t.messages[t.messages.length - 1];
   return {
     lineUid: t.lineUid,

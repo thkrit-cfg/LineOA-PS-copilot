@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { mockDb } from './mockDb';
 import { verifyLineSignature, buildStaffProfileFlex } from './lineService';
-import { inboxStore } from './inboxStore';
+import { inboxStore, summarize } from './inboxStore';
 import { adminStore } from './adminStore';
 import { registerAuthRoutes, currentUser } from './auth';
 import { registerAdminApi } from './adminApi';
@@ -207,6 +207,11 @@ export function createApp() {
   app.get('/api/inbox/threads/:lineUid', async (req, res) => {
     try {
       const lineUid = String(req.params.lineUid);
+      // Capture the unread count BEFORE getThread clears it (opening a
+      // thread marks it read) — the response reports what the user actually
+      // had unread when they opened it, not a hardcoded 0.
+      const preUnread = (await inboxStore.getAllThreads())
+        .find(t => t.lineUid === lineUid)?.unread ?? 0;
       const thread = await inboxStore.getThread(lineUid);
       if (!thread) {
         return res.status(404).json({ error: 'Thread not found' });
@@ -214,16 +219,28 @@ export function createApp() {
       const customer = thread.customerCrmId
         ? mockDb.getCustomerById(thread.customerCrmId) || null
         : null;
+      // Field parity with the list endpoint: return the full summary shape
+      // (status, lastText, lastFrom, snoozeUntil, real unread, CRM
+      // enrichment, priority) plus the messages. Previously the detail
+      // response hardcoded unread: 0 and omitted status/tier/priority.
+      const summary = summarize(thread);
+      const p = computeThreadPriority({
+        ltv: customer?.totalSpendLtv,
+        segment: customer?.rfmSegment,
+        tier: customer?.tier,
+        lastTs: summary.lastTs,
+      });
       res.json({
         data: {
-          lineUid: thread.lineUid,
-          customerCrmId: thread.customerCrmId,
-          displayName: thread.displayName,
-          avatarUrl: thread.avatarUrl,
-          isLineFriend: thread.isLineFriend,
+          ...summary,
+          unread: preUnread,
           messages: thread.messages,
-          unread: 0,
           repliedBy: thread.repliedBy ?? null,
+          rfmSegment: customer?.rfmSegment,
+          tier: customer?.tier,
+          ltv: customer?.totalSpendLtv,
+          priority: p.priority,
+          priorityFlags: p.flags,
           customer,
         },
       });
@@ -376,15 +393,18 @@ export function createApp() {
       return res.status(404).json({ error: 'Customer not found' });
     }
     const existing = await inboxStore.getThread(lineUid);
+    // Prefer a real LINE profile name; otherwise use the CRM customer's name
+    // — the stale 'LINE User' placeholder must NOT win over customer.fullName,
+    // or the thread keeps showing "LINE User" after linking.
+    const realName =
+      existing?.displayName && existing.displayName !== 'LINE User'
+        ? existing.displayName
+        : customer.lineDisplayName || customer.fullName;
     // Map the customer's LINE UID in the CRM so future messages auto-match.
-    mockDb.mapLineUid(
-      crmCustomerId,
-      lineUid,
-      existing?.displayName || customer.lineDisplayName || customer.fullName
-    );
+    mockDb.mapLineUid(crmCustomerId, lineUid, realName);
     // Link the thread to the customer + refresh identity.
     const thread = await inboxStore.linkCrm(lineUid, crmCustomerId, {
-      displayName: existing?.displayName || customer.lineDisplayName || customer.fullName,
+      displayName: realName,
       avatarUrl: existing?.avatarUrl,
     });
     res.json({ success: true, thread });
@@ -502,8 +522,15 @@ export function createApp() {
     const signature = req.headers['x-line-signature'] as string;
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
 
-    // Verify signature if secret configured
-    if (channelSecret && signature) {
+    // Verify signature if secret configured. When the secret IS set, a
+    // missing signature header is rejected outright — otherwise anyone who
+    // knows the URL can inject fake customer messages (unsigned POST → 200).
+    // The lenient path (skip verification) only applies in local dev where
+    // no secret is configured.
+    if (channelSecret) {
+      if (!signature) {
+        return res.status(403).json({ error: 'Missing LINE signature' });
+      }
       const isValid = verifyLineSignature(req.rawBody || JSON.stringify(req.body), signature, channelSecret);
       if (!isValid) {
         return res.status(403).json({ error: 'Invalid LINE signature' });

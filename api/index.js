@@ -32485,21 +32485,30 @@ function createApp() {
   app.get("/api/inbox/threads/:lineUid", async (req, res) => {
     try {
       const lineUid = String(req.params.lineUid);
+      const preUnread = (await inboxStore.getAllThreads()).find((t) => t.lineUid === lineUid)?.unread ?? 0;
       const thread = await inboxStore.getThread(lineUid);
       if (!thread) {
         return res.status(404).json({ error: "Thread not found" });
       }
       const customer = thread.customerCrmId ? mockDb.getCustomerById(thread.customerCrmId) || null : null;
+      const summary = summarize(thread);
+      const p2 = computeThreadPriority({
+        ltv: customer?.totalSpendLtv,
+        segment: customer?.rfmSegment,
+        tier: customer?.tier,
+        lastTs: summary.lastTs
+      });
       res.json({
         data: {
-          lineUid: thread.lineUid,
-          customerCrmId: thread.customerCrmId,
-          displayName: thread.displayName,
-          avatarUrl: thread.avatarUrl,
-          isLineFriend: thread.isLineFriend,
+          ...summary,
+          unread: preUnread,
           messages: thread.messages,
-          unread: 0,
           repliedBy: thread.repliedBy ?? null,
+          rfmSegment: customer?.rfmSegment,
+          tier: customer?.tier,
+          ltv: customer?.totalSpendLtv,
+          priority: p2.priority,
+          priorityFlags: p2.flags,
           customer
         }
       });
@@ -32628,13 +32637,10 @@ function createApp() {
       return res.status(404).json({ error: "Customer not found" });
     }
     const existing = await inboxStore.getThread(lineUid);
-    mockDb.mapLineUid(
-      crmCustomerId,
-      lineUid,
-      existing?.displayName || customer.lineDisplayName || customer.fullName
-    );
+    const realName = existing?.displayName && existing.displayName !== "LINE User" ? existing.displayName : customer.lineDisplayName || customer.fullName;
+    mockDb.mapLineUid(crmCustomerId, lineUid, realName);
     const thread = await inboxStore.linkCrm(lineUid, crmCustomerId, {
-      displayName: existing?.displayName || customer.lineDisplayName || customer.fullName,
+      displayName: realName,
       avatarUrl: existing?.avatarUrl
     });
     res.json({ success: true, thread });
@@ -32720,7 +32726,10 @@ function createApp() {
   app.post("/api/line/webhook", async (req, res) => {
     const signature = req.headers["x-line-signature"];
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
-    if (channelSecret && signature) {
+    if (channelSecret) {
+      if (!signature) {
+        return res.status(403).json({ error: "Missing LINE signature" });
+      }
       const isValid = verifyLineSignature(req.rawBody || JSON.stringify(req.body), signature, channelSecret);
       if (!isValid) {
         return res.status(403).json({ error: "Invalid LINE signature" });
