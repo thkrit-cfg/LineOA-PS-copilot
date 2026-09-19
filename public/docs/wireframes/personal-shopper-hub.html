@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Personal Shopper Hub — Full App Wireframe v2</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --paper: #ffffff;
+    --ink: #2b2b2b;
+    --ink-soft: #6b6b6b;
+    --ink-faint: #9a9a9a;
+    --line: #c9c9c4;
+    --line-soft: #e2e2dd;
+    --box: #ececea;
+    --box-soft: #f6f6f4;
+    --anno: #d64541;
+    --anno-bg: #fdeeec;
+    --ok: #3e8e5a;
+    --ok-bg: #eef7f1;
+    --keep: #8a6d1a;
+    --keep-bg: #fbf5e4;
+    --dark: #141b26;
+    --dark-line: #2a3648;
+    --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); padding: 40px 24px 80px; }
+  .page { max-width: 1560px; margin: 0 auto; }
+
+  .doc-head { border-bottom: 2px solid var(--ink); padding-bottom: 18px; margin-bottom: 34px; }
+  .doc-head h1 { font-size: 26px; letter-spacing: -0.02em; }
+  .doc-head .sub { margin-top: 6px; color: var(--ink-soft); font-size: 14px; max-width: 980px; line-height: 1.5; }
+  .doc-meta { display: flex; gap: 18px; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-soft); flex-wrap: wrap; }
+  .doc-meta span b { color: var(--ink); font-weight: 600; }
+
+  section { margin-bottom: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .sec-num { font-family: var(--mono); font-size: 12px; border: 1.5px solid var(--ink); padding: 1px 7px; }
+  .sec-head h2 { font-size: 19px; letter-spacing: -0.01em; }
+  .sec-route { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .sec-desc { color: var(--ink-soft); font-size: 13.5px; margin-bottom: 20px; max-width: 1000px; line-height: 1.55; }
+
+  /* ---------- IA map ---------- */
+  .ia { display: flex; gap: 24px; flex-wrap: wrap; }
+  .ia-tree { flex: 1; min-width: 420px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; font-family: var(--mono); font-size: 12px; line-height: 1.9; overflow-x: auto; }
+  .ia-tree .root { font-weight: 700; }
+  .ia-tree .lv1 { padding-left: 20px; }
+  .ia-tree .lv2 { padding-left: 44px; color: var(--ink-soft); }
+  .ia-tree .tag { display: inline-block; font-size: 9.5px; padding: 0 6px; border-radius: 3px; margin-left: 8px; vertical-align: 1px; }
+  .tag.m { background: var(--ok-bg); color: var(--ok); border: 1px solid #bfe0cc; }
+  .tag.d { background: var(--keep-bg); color: var(--keep); border: 1px solid #e6d9ae; }
+  .tag.a { background: var(--anno-bg); color: var(--anno); border: 1px solid #eac2bf; }
+  .ia-legend { font-size: 12px; color: var(--ink-soft); line-height: 2; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 260px; }
+
+  /* ---------- frame rows ---------- */
+  .frames { display: flex; gap: 28px; flex-wrap: wrap; }
+  .frame-unit { display: flex; flex-direction: column; gap: 10px; }
+  .frame-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+  .frame-label .pill { border: 1.5px solid var(--ink); padding: 1px 8px; color: var(--ink); }
+  .frame-notes { font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; max-width: 380px; border-left: 3px solid var(--line); padding-left: 10px; }
+  .frame-notes b { color: var(--ink); }
+  .frame-notes .n { color: var(--anno); font-weight: 700; }
+
+  /* ---------- phone ---------- */
+  .phone { width: 375px; height: 730px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: 26px; position: relative; overflow: hidden; display: flex; flex-direction: column; box-shadow: 4px 5px 0 rgba(0,0,0,0.06); flex-shrink: 0; }
+  .phone .statusbar { height: 26px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); flex-shrink: 0; }
+  .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  /* dark app chrome (staff inbox / liff) */
+  .phone.dark { background: #0d131f; color: #e2e8f0; }
+  .phone.dark .statusbar { border-bottom-color: var(--dark-line); color: #64748b; background: #0d131f; }
+  .d-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--dark-line); background: #0d131f; flex-shrink: 0; }
+  .d-icon { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #10b981, #2563eb); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .d-title { font-size: 13px; font-weight: 800; color: #fff; }
+  .d-sub { font-size: 9.5px; color: #64748b; font-family: var(--mono); margin-top: 1px; }
+  .d-seg { display: flex; background: #0b0f17; border: 1px solid var(--dark-line); border-radius: 8px; padding: 2px; margin-left: auto; }
+  .d-seg span { font-size: 9px; font-weight: 700; color: #64748b; padding: 3px 7px; border-radius: 6px; }
+  .d-seg span.on { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .d-search { display: flex; align-items: center; gap: 6px; margin: 8px 12px; border: 1px solid var(--dark-line); border-radius: 9px; padding: 7px 10px; font-size: 10.5px; color: #64748b; background: #0d131f; flex-shrink: 0; }
+  .d-filter { display: flex; gap: 4px; padding: 0 12px 8px; flex-shrink: 0; }
+  .d-chip { font-size: 9px; font-weight: 700; color: #94a3b8; border: 1px solid var(--dark-line); border-radius: 999px; padding: 2.5px 9px; }
+  .d-chip.on { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.4); }
+  .d-sec { font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; font-weight: 700; padding: 8px 12px 4px; flex-shrink: 0; }
+  .d-list { flex: 1; overflow: hidden; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .d-row { display: flex; gap: 9px; align-items: center; border: 1px solid var(--dark-line); border-radius: 12px; padding: 8px 10px; background: #111827; }
+  .d-row.sel { border-color: rgba(16,185,129,0.5); background: rgba(6,78,59,0.25); }
+  .d-ava { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #2563eb); flex-shrink: 0; position: relative; }
+  .d-ava.gray { background: #334155; }
+  .d-row .info { flex: 1; min-width: 0; }
+  .d-row .n { font-size: 11.5px; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 5px; }
+  .d-row .s { font-size: 9.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .d-row .t { font-size: 8.5px; color: #64748b; font-family: var(--mono); flex-shrink: 0; }
+  .badge { font-size: 7.5px; font-weight: 900; letter-spacing: 0.05em; border-radius: 4px; padding: 1px 4px; border: 1px solid; }
+  .badge.vip { color: #fbbf24; border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.1); }
+  .badge.gold { color: #f59e0b; border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.1); }
+  .badge.silver { color: #cbd5e1; border-color: rgba(203,213,225,0.4); background: rgba(203,213,225,0.08); }
+  .badge.member { color: #94a3b8; border-color: rgba(148,163,184,0.4); background: rgba(148,163,184,0.08); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+  .dot.amber { background: #f59e0b; }
+  .dot.red { background: #ef4444; }
+
+  /* conversation */
+  .d-strip { display: flex; align-items: center; flex-wrap: wrap; row-gap: 3px; gap: 7px; padding: 7px 12px; border-bottom: 1px solid var(--dark-line); font-size: 9.5px; color: #94a3b8; flex-shrink: 0; background: #0d131f; }
+  .d-strip b { color: #e2e8f0; }
+  .d-strip .lbl { font-weight: 800; color: #6ee7b7; display: inline-flex; align-items: center; gap: 4px; }
+  .d-strip .lbl.amber { color: #fcd34d; }
+  .d-strip .lbl.red { color: #fca5a5; }
+  .d-recs { display: flex; gap: 7px; padding: 8px 12px 4px; overflow: hidden; flex-shrink: 0; }
+  .d-rec { width: 118px; border: 1px solid var(--dark-line); border-radius: 10px; overflow: hidden; background: #111827; flex-shrink: 0; }
+  .d-rec .img { height: 46px; background: repeating-linear-gradient(45deg, #1e293b 0 6px, #16202f 6px 12px); border-bottom: 1px solid var(--dark-line); }
+  .d-rec .body { padding: 5px 7px; }
+  .d-rec .l1 { height: 7px; background: #334155; border-radius: 2px; margin-bottom: 4px; }
+  .d-rec .l2 { height: 6px; background: #1e293b; border-radius: 2px; width: 70%; }
+  .d-rec .p { font-size: 9px; color: #6ee7b7; font-family: var(--mono); font-weight: 700; margin-top: 3px; }
+  .d-promo { min-width: 138px; max-width: 150px; border: 1px solid rgba(251,191,36,0.3); border-radius: 10px; padding: 6px 8px; background: #0b0f17; flex-shrink: 0; }
+  .d-promo .t { font-size: 10px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .d-promo .c { font-size: 8.5px; color: #64748b; font-family: var(--mono); margin-top: 2px; }
+  .d-promo .r { font-size: 8.5px; color: rgba(252,211,77,0.85); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nba { margin: 4px 12px 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 700; border-radius: 8px; padding: 5px 9px; flex-shrink: 0; }
+  .nba.urgent { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+  .nba.opp { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+  .d-msgs { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 0; background: #eae5dc; overflow: hidden; }
+  .d-bubble { max-width: 78%; border-radius: 12px; padding: 7px 10px; font-size: 11px; line-height: 1.45; background: #fff; color: #2b2b2b; border: 1px solid #d8d2c6; }
+  .d-bubble.mine { align-self: flex-end; background: #d6f5e3; border-color: #b5e3c8; }
+  .d-bubble .meta { font-size: 8px; color: #9a9a9a; margin-top: 3px; font-family: var(--mono); }
+  .d-bubble .intent { display: inline-block; margin-top: 5px; font-size: 8px; font-weight: 700; border: 1px dashed #b9b2a4; border-radius: 4px; padding: 1px 5px; color: #6b6b6b; }
+  .d-composer { border-top: 1px solid var(--dark-line); padding: 9px 12px; display: flex; gap: 7px; align-items: center; flex-shrink: 0; background: #0d131f; }
+  .d-composer .field { flex: 1; border: 1px solid var(--dark-line); border-radius: 999px; padding: 8px 12px; font-size: 10.5px; color: #64748b; background: #0b0f17; }
+  .d-round { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #334155; display: flex; align-items: center; justify-content: center; font-size: 13px; background: #111827; color: #e2e8f0; flex-shrink: 0; }
+  .d-round.fill { background: #10b981; border-color: #10b981; color: #04211a; }
+  .d-round.ai { border-color: #6366f1; color: #a5b4fc; background: rgba(99,102,241,0.12); }
+
+  /* bottom sheet (dark) */
+  .dim { position: absolute; inset: 0; background: rgba(11,15,23,0.72); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #111827; border-top: 1.5px solid #475569; border-radius: 20px 20px 0 0; display: flex; flex-direction: column; max-height: 80%; color: #e2e8f0; }
+  .sheet .grab { width: 36px; height: 4px; border-radius: 2px; background: #334155; margin: 8px auto 4px; flex-shrink: 0; }
+  .sheet-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--dark-line); flex-shrink: 0; }
+  .sheet-head .t { font-size: 13px; font-weight: 800; color: #fff; }
+  .sheet-head .s { font-size: 9.5px; color: #64748b; }
+  .sheet-head .x { margin-left: auto; width: 26px; height: 26px; border: 1px solid var(--dark-line); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #94a3b8; }
+  .sheet-search { margin: 10px 14px 6px; border: 1.5px dashed #475569; border-radius: 10px; padding: 9px 12px; font-size: 11px; color: #64748b; flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
+  .sheet-search .caret { width: 1.5px; height: 14px; background: #e2e8f0; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .sheet-body { flex: 1; overflow: hidden; padding: 8px 14px; display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+  .cust-row { display: flex; gap: 10px; align-items: center; border: 1px solid var(--dark-line); border-radius: 12px; padding: 8px 10px; background: #0d131f; }
+  .cust-row.sel { border-color: rgba(16,185,129,0.55); background: rgba(6,78,59,0.25); }
+  .cust-row .info { flex: 1; min-width: 0; }
+  .cust-row .n { font-size: 12px; font-weight: 700; color: #fff; }
+  .cust-row .m { font-size: 9.5px; color: #64748b; font-family: var(--mono); margin-top: 2px; }
+  .cust-row .m2 { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+  .prof-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; border: 1px solid var(--dark-line); border-radius: 12px; padding: 10px 12px; background: #0d131f; }
+  .prof-grid .k { font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 700; }
+  .prof-grid .v { font-size: 10.5px; color: #e2e8f0; margin-top: 1px; }
+  .prof-grid .v.hl { color: #6ee7b7; font-weight: 700; }
+  .sheet-cta { margin: 10px 14px 14px; border: none; background: #10b981; color: #04211a; font-weight: 800; font-size: 12px; border-radius: 10px; padding: 11px; flex-shrink: 0; font-family: var(--sans); }
+  .draft-box { border: 1px dashed #475569; border-radius: 12px; padding: 10px 12px; font-size: 11px; line-height: 1.55; color: #cbd5e1; background: #0d131f; flex: 1; overflow: hidden; }
+  .draft-box .src { display: inline-block; font-family: var(--mono); font-size: 8.5px; font-weight: 700; color: #a5b4fc; border: 1px solid rgba(99,102,241,0.5); background: rgba(99,102,241,0.12); border-radius: 4px; padding: 1px 6px; margin-bottom: 7px; }
+  .sheet-btns { display: flex; gap: 8px; padding: 10px 14px 14px; flex-shrink: 0; }
+  .s-btn { flex: 1; border-radius: 10px; padding: 10px; font-size: 11.5px; font-weight: 800; text-align: center; font-family: var(--sans); }
+  .s-btn.ghost { border: 1px solid #475569; color: #cbd5e1; background: transparent; }
+  .s-btn.primary { background: #10b981; color: #04211a; border: none; }
+
+  /* ---------- desktop frames ---------- */
+  .desk { width: 780px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: 14px; overflow: hidden; box-shadow: 4px 5px 0 rgba(0,0,0,0.06); flex-shrink: 0; }
+  .desk .chrome { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1.5px solid var(--ink); background: var(--box-soft); }
+  .desk .chrome .dots { display: flex; gap: 5px; }
+  .desk .chrome .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .desk .chrome .url { flex: 1; font-family: var(--mono); font-size: 10px; color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; }
+  .dapp { background: #0b0f17; color: #e2e8f0; padding: 0; }
+  .dapp-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--dark-line); background: #0d131f; flex-wrap: wrap; }
+  .dapp-top .brand { font-size: 13px; font-weight: 800; color: #fff; }
+  .dapp-top .brand small { display: block; font-size: 8.5px; color: #64748b; font-weight: 600; font-family: var(--mono); }
+  .dapp-tabs { display: flex; gap: 4px; margin-left: 12px; }
+  .dapp-tabs span { font-size: 10px; font-weight: 700; color: #94a3b8; border: 1px solid var(--dark-line); border-radius: 8px; padding: 5px 10px; }
+  .dapp-tabs span.on { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.45); }
+  .dapp-top .right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .dapp-top .sel { font-size: 9.5px; color: #cbd5e1; border: 1px solid var(--dark-line); border-radius: 8px; padding: 5px 8px; background: #0b0f17; }
+  .dapp-top .btn { font-size: 9.5px; font-weight: 700; border: 1px solid var(--dark-line); border-radius: 8px; padding: 5px 9px; color: #cbd5e1; background: #111827; }
+  .dapp-top .btn.hl { border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
+  .dapp-body { display: flex; gap: 12px; padding: 12px 14px; min-height: 420px; }
+  .dcol { border: 1px solid var(--dark-line); border-radius: 14px; background: #111827; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .dcol.w280 { width: 250px; flex-shrink: 0; }
+  .dcol.flex { flex: 1; }
+  .dcol-h { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; }
+  .d-input { border: 1px solid var(--dark-line); border-radius: 9px; padding: 7px 10px; font-size: 10px; color: #64748b; background: #0b0f17; }
+  .d-input.center { text-align: center; }
+  .d-rowlist { display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+  .d-rowitem { display: flex; gap: 8px; align-items: center; border: 1px solid var(--dark-line); border-radius: 10px; padding: 7px 9px; background: #0d131f; }
+  .d-rowitem.sel { border-color: rgba(16,185,129,0.5); background: rgba(6,78,59,0.25); }
+  .d-rowitem .n { font-size: 10.5px; font-weight: 700; color: #f1f5f9; }
+  .d-rowitem .m { font-size: 8.5px; color: #64748b; font-family: var(--mono); margin-top: 1px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .kpi { border: 1px solid var(--dark-line); border-radius: 10px; background: #0d131f; padding: 8px 10px; }
+  .kpi .k { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 700; }
+  .kpi .v { font-size: 16px; font-weight: 800; color: #fff; margin-top: 2px; font-family: var(--mono); }
+  .kpi.hl .v { color: #6ee7b7; }
+  .kpi.warn .v { color: #fca5a5; }
+  .chart { border: 1px solid var(--dark-line); border-radius: 10px; background: #0d131f; padding: 10px; height: 120px; position: relative; }
+  .chart .grid { position: absolute; inset: 10px 10px 18px 10px; background-image: linear-gradient(var(--dark-line) 1px, transparent 1px), linear-gradient(90deg, var(--dark-line) 1px, transparent 1px); background-size: 100% 25%, 12.5% 100%; opacity: 0.5; }
+  .chart svg { position: absolute; inset: 0; }
+  .chart .cap { position: absolute; top: 6px; left: 10px; font-size: 9px; font-weight: 700; color: #94a3b8; }
+  .dtable { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+  .dtable th { text-align: left; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 5px 8px; border-bottom: 1.5px solid #334155; background: #0d131f; }
+  .dtable td { padding: 6px 8px; border-bottom: 1px solid var(--dark-line); color: #cbd5e1; }
+  .dtable td.mono { font-family: var(--mono); font-size: 9px; }
+  .dtable td .ok { color: #6ee7b7; font-weight: 700; }
+  .dtable td .no { color: #fca5a5; font-weight: 700; }
+  .dtable td .amber { color: #fcd34d; font-weight: 700; }
+  .mini-btn { font-size: 8.5px; font-weight: 700; border: 1px solid var(--dark-line); border-radius: 6px; padding: 2.5px 7px; color: #cbd5e1; background: #111827; margin-right: 4px; }
+  .mini-btn.g { border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
+  .mini-btn.r { border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .f-field label { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 700; margin-bottom: 3px; }
+  .f-field .d-input { width: 100%; }
+  .f-field.full { grid-column: 1 / -1; }
+  .ticket { border: 1px solid var(--dark-line); border-radius: 12px; background: #0d131f; padding: 10px 12px; }
+  .ticket.open { border-left: 3px solid #10b981; }
+  .ticket .top { display: flex; align-items: center; gap: 8px; }
+  .ticket .subj { font-size: 11px; font-weight: 700; color: #fff; }
+  .tbadge { font-size: 8px; font-weight: 800; border-radius: 4px; padding: 1.5px 6px; }
+  .tbadge.open { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+  .tbadge.ans { background: rgba(251,191,36,0.12); color: #fcd34d; border: 1px solid rgba(251,191,36,0.4); }
+  .tbadge.res { background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.35); }
+  .ticket .meta { font-size: 9px; color: #64748b; font-family: var(--mono); margin-top: 3px; }
+  .ticket .ans { margin-top: 8px; }
+  .ticket .ans .d-input { min-height: 34px; }
+  .login-card { margin: 60px auto; width: 300px; border: 1px solid var(--dark-line); border-radius: 16px; background: #111827; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .login-card .logo { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #2563eb); margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .login-card h3 { text-align: center; font-size: 14px; color: #fff; }
+  .login-card p { text-align: center; font-size: 10px; color: #64748b; margin-top: -8px; }
+  .login-card .d-input { text-align: left; }
+  .login-card .go { background: #10b981; color: #04211a; border: none; border-radius: 10px; padding: 10px; font-weight: 800; font-size: 12px; font-family: var(--sans); }
+  .login-note { text-align: center; font-size: 8.5px; color: #475569; font-family: var(--mono); }
+
+  /* LIFF specifics */
+  .liff-tabs { display: flex; border-bottom: 1px solid var(--dark-line); background: #0d131f; flex-shrink: 0; }
+  .liff-tabs span { flex: 1; text-align: center; font-size: 10px; font-weight: 800; color: #64748b; padding: 10px 4px; border-bottom: 2.5px solid transparent; }
+  .liff-tabs span.on { color: #6ee7b7; border-bottom-color: #10b981; }
+  .liff-body { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #0d131f; }
+  .the1-card { border-radius: 16px; background: linear-gradient(135deg, #1e3a8a, #065f46); border: 1px solid #334155; padding: 14px; color: #fff; }
+  .the1-card .top { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; }
+  .the1-card .num { font-family: var(--mono); font-size: 13px; letter-spacing: 0.12em; margin-top: 14px; color: #e2e8f0; }
+  .the1-card .bal { margin-top: 10px; font-size: 9px; color: #94a3b8; }
+  .the1-card .bal b { color: #6ee7b7; font-size: 12px; }
+  .barcode { height: 56px; margin-top: 12px; background: repeating-linear-gradient(90deg, #fff 0 2px, transparent 2px 5px, #fff 5px 6px, transparent 6px 10px); border-radius: 4px; }
+  .liff-note { font-size: 9.5px; color: #94a3b8; line-height: 1.5; border: 1px dashed #334155; border-radius: 10px; padding: 9px 11px; }
+  .coupon { border: 1px solid var(--dark-line); border-radius: 12px; background: #111827; padding: 10px 12px; display: flex; gap: 10px; align-items: center; }
+  .coupon .code { font-family: var(--mono); font-size: 10px; font-weight: 800; color: #fcd34d; border: 1px dashed rgba(251,191,36,0.5); border-radius: 6px; padding: 3px 7px; }
+  .coupon .info { flex: 1; min-width: 0; }
+  .coupon .t { font-size: 11px; font-weight: 700; color: #fff; }
+  .coupon .m { font-size: 8.5px; color: #64748b; margin-top: 2px; }
+  .whisper { background: rgba(30,58,138,0.4); border: 1px solid rgba(59,130,246,0.5); border-radius: 12px; padding: 10px 12px; }
+  .whisper .h { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; font-weight: 800; color: #93c5fd; }
+  .whisper .role { font-size: 8.5px; background: #1e3a8a; color: #bfdbfe; border-radius: 5px; padding: 2px 7px; font-weight: 700; }
+  .whisper .p { font-size: 9.5px; color: #cbd5e1; margin-top: 5px; line-height: 1.45; }
+  .digest { border: 1px solid var(--dark-line); border-radius: 12px; background: #141c2a; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 10px; }
+  .digest .k { color: #94a3b8; }
+  .digest .v { color: #fff; font-weight: 700; text-align: right; }
+  .digest .v.g { color: #6ee7b7; }
+  .digest .v.a { color: #fcd34d; }
+  .liff-prod { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--dark-line); border-radius: 12px; background: #151e2d; padding: 9px 11px; }
+  .liff-prod .n { font-size: 10.5px; font-weight: 700; color: #fff; }
+  .liff-prod .p { font-size: 9.5px; color: #6ee7b7; font-family: var(--mono); font-weight: 700; margin-top: 2px; }
+  .send-line { font-size: 9px; font-weight: 800; background: #06c755; color: #04211a; border-radius: 8px; padding: 6px 9px; flex-shrink: 0; }
+  .liff-bottom { border-top: 1px solid var(--dark-line); background: #121824; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .liff-bottom .who { display: flex; align-items: center; gap: 6px; font-size: 9.5px; color: #94a3b8; }
+  .liff-bottom .bc { font-size: 9.5px; font-weight: 800; color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); background: rgba(16,185,129,0.12); border-radius: 999px; padding: 5px 11px; }
+
+  /* phone preview column (inside desk) */
+  .phone-mini { width: 150px; height: 300px; border: 1.5px solid #475569; border-radius: 16px; background: #0d131f; overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; margin: 0 auto; }
+  .phone-mini .ph-head { padding: 8px 10px; border-bottom: 1px solid var(--dark-line); font-size: 8.5px; font-weight: 800; color: #fff; }
+  .phone-mini .ph-body { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .phone-mini .ph-bub { font-size: 7.5px; background: #1e293b; border-radius: 6px; padding: 4px 6px; color: #cbd5e1; }
+  .phone-mini .ph-bub.mine { align-self: flex-end; background: rgba(6,199,85,0.25); }
+  .phone-mini .ph-bub.flex { border: 1px dashed #475569; }
+
+  /* flows */
+  .flows { display: flex; flex-direction: column; gap: 12px; }
+  .flow { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+  .flow .fh { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .flow .fh .num { font-family: var(--mono); font-size: 11px; font-weight: 700; border: 1.5px solid var(--ink); border-radius: 6px; padding: 1px 7px; }
+  .flow .fh .t { font-size: 13.5px; font-weight: 800; }
+  .flow .steps { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-soft); }
+  .flow .steps .st { border: 1px solid var(--line); background: var(--box-soft); border-radius: 8px; padding: 5px 10px; }
+  .flow .steps .st b { color: var(--ink); }
+  .flow .steps .ar { color: var(--ink-faint); font-weight: 700; }
+  .flow .steps .st.hl { border-color: var(--ok); background: var(--ok-bg); }
+  .flow .steps .st.ai { border-color: #6366f1; background: #eef0fe; }
+
+  .foot { border-top: 2px solid var(--ink); margin-top: 20px; padding-top: 16px; font-size: 12px; color: var(--ink-soft); line-height: 1.6; }
+  .foot b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="doc-head">
+    <h1>Personal Shopper Hub — Full App Wireframe</h1>
+    <div class="sub"><b>Personal Shopper</b> is the name of our LINE OA sales channel. Two audiences, two surfaces: the <b>Chat Page</b> (store staff, mobile-first) and the <b>Admin Portal</b> (HQ support, desktop) — plus an internal support workbench. <b>Customers do not use this product</b>: they stay in their LINE chat (Flex cards, promo codes, tel: links). The old LIFF customer app is out of scope. Grayscale wireframe — layout and interaction only.</div>
+    <div class="doc-meta">
+      <span><b>VERSION</b> v2 · 2026-09-19 (rebrand)</span>
+      <span><b>REPO</b> thkrit-cfg/LineOA-PS-copilot</span>
+      <span><b>LIVE</b> line-oa-ps-copilot.vercel.app</span>
+      <span><b>COMPANION</b> staff-inbox-v2.html (Chat Page detail)</span>
+      <span><b>DECISION</b> customers out of scope · 2026-09-19</span>
+    </div>
+  </div>
+
+  <!-- ================= 0 · IA MAP ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">0</span><h2>App map — routes &amp; surfaces</h2></div>
+    <p class="sec-desc">Two audiences, one data lake. Store staff get the <b>Chat Page</b>; HQ support gets the <b>Admin Portal</b> + internal workbench. Everything reads/writes the same customer + transaction data. Customers never touch this product — their entire surface is the LINE chat itself (section 4).</p>
+    <div class="ia">
+      <div class="ia-tree">
+        <div class="root">personal shopper hub <span style="color:var(--ink-faint);font-weight:400;">· line-oa-ps-copilot.vercel.app</span></div>
+        <div class="lv1">/staff <span class="tag m">MOBILE · STORE STAFF</span> — "Chat Page" (primary user: store staff)</div>
+        <div class="lv2">thread list → thread detail → CRM drawer / AI-draft sheet</div>
+        <div class="lv1">/admin <span class="tag d">DESKTOP · HQ SUPPORT</span> — "Admin Portal" (login-gated)</div>
+        <div class="lv2">Performance (KPIs, trend, per-staff / per-branch) · Promotions (CRUD) · Tickets (answer/close)</div>
+        <div class="lv1">/ <span class="tag d">DESKTOP · HQ SUPPORT</span> — Support workbench (internal ops)</div>
+        <div class="lv2">Staff Console (desktop chat) · Segmentation Hub · CRM↔LINE Mapping · Data Lake Manager</div>
+        <div class="lv2">+ LINE phone simulator (right rail) · "Grill Me" audit modal</div>
+        <div class="lv1" style="color:var(--anno);font-weight:700;">Customer — no app <span class="tag a">STAYS IN LINE CHAT</span></div>
+        <div class="lv2">Flex cards (product recs, promo codes) · tel: deep-link calls · journey log — LIFF app out of scope</div>
+      </div>
+      <div class="ia-legend">
+        <b>Who talks to whom</b><br/>
+        Customer → LINE OA message → webhook → <b>Chat Page</b> (staff replies, AI assists)<br/>
+        Staff → CRM drawer / workbench → <b>data lake</b> (7 profiles, transactions, catalog)<br/>
+        HQ support → <b>Admin Portal</b> → promotions feed the Chat Page; tickets collect staff questions<br/>
+        Customer → <b>LINE chat only</b> → receives Flex cards, promo codes, tel: links — never logs in
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 1 · STAFF INBOX ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">1</span><h2>Chat Page — staff inbox PWA</h2><span class="sec-route">/staff · mobile-first · dark · store staff</span></div>
+    <p class="sec-desc">The store staff's daily screen — the <b>"Chat Page"</b> of the Personal Shopper Hub. A LINE-OA-manager-style thread list, a conversation view with CRM context, copilot product picks, live promos and an AI draft. Desktop shows list + conversation side by side; mobile is single-column with a back button. <span style="color:var(--anno);font-weight:700;">Open question (user):</span> the CRM search interaction (tapping in to reveal another customer's data) still needs validation — see note under frame 1.3.</p>
+    <div class="frames">
+
+      <!-- 1.1 thread list -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">1.1</span> THREAD LIST</div>
+        <div class="phone dark">
+          <div class="statusbar"><span>9:41</span><span>LINE OA · Staff</span><span>▮▮▮</span></div>
+          <div class="screen">
+            <div class="d-bar">
+              <div class="d-icon">📥</div>
+              <div><div class="d-title">Staff Inbox</div><div class="d-sub">● 3 unread · up to date</div></div>
+              <div class="d-seg"><span class="on">Priority</span><span>Top value</span><span>Recent</span></div>
+            </div>
+            <div class="d-search">🔍 Search name, LINE ID, CRM…</div>
+            <div class="d-filter"><span class="d-chip on">All</span><span class="d-chip">Active</span><span class="d-chip">Snoozed</span><span class="d-chip">Done</span></div>
+            <div class="d-sec">Needs reply (3)</div>
+            <div class="d-list">
+              <div class="d-row sel">
+                <div class="d-ava"></div>
+                <div class="info"><div class="n">Nattaporn W. <span class="badge vip">PLATINUM VIP</span></div><div class="s">Do you have the organic chicken? I ordered last—</div></div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;"><span class="t">09:12</span><span class="dot"></span></div>
+              </div>
+              <div class="d-row">
+                <div class="d-ava"></div>
+                <div class="info"><div class="n">Somchai K. <span class="badge gold">GOLD</span></div><div class="s">The coupon FRESH15 didn't apply at checkout…</div></div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;"><span class="t">08:47</span><span class="dot"></span></div>
+              </div>
+              <div class="d-row">
+                <div class="d-ava gray"></div>
+                <div class="info"><div class="n">081-234-xxxx <span style="font-size:8px;color:#fcd34d;">⚠ not linked</span></div><div class="s">สวัสดีครับ มีโปรลดราคาอะไรไหมครับ</div></div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;"><span class="t">08:30</span><span class="dot"></span></div>
+              </div>
+              <div class="d-sec">Active (2)</div>
+              <div class="d-row">
+                <div class="d-ava"></div>
+                <div class="info"><div class="n">Kanya P. <span class="badge silver">SILVER</span></div><div class="s">Got it, thanks! Will come by this weekend 👍</div></div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;"><span class="t">Yesterday</span><span class="dot amber"></span></div>
+              </div>
+              <div class="d-row">
+                <div class="d-ava"></div>
+                <div class="info"><div class="n">Weera T. <span class="badge member">MEMBER</span></div><div class="s">Re: delivery slot — resolved, ticket closed</div></div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;"><span class="t">Tue</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes"><b>Sort</b> Priority / Top value / Recent (segmented). <b>Filter</b> All / Active / Snoozed / Done. Unlinked customers show phone number + amber warning. <b>Keyboard</b>: ↑↓ + Enter to open thread. <span class="n">Open question:</span> should "Top value" sort surface VIPs even when idle?</div>
+      </div>
+
+      <!-- 1.2 thread detail -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">1.2</span> THREAD DETAIL + COPILOT</div>
+        <div class="phone dark">
+          <div class="statusbar"><span>9:41</span><span>LINE OA · Staff</span><span>▮▮▮</span></div>
+          <div class="screen">
+            <div class="d-bar">
+              <div style="font-size:14px;color:#94a3b8;">←</div>
+              <div class="d-ava" style="width:30px;height:30px;"></div>
+              <div style="flex:1;min-width:0;"><div class="d-title" style="font-size:12px;">Nattaporn W. <span class="badge vip">VIP</span></div><div class="d-sub">Uc99950503ba1c…</div></div>
+            </div>
+            <div class="d-strip"><span class="lbl">▣ CRM</span><b>Nattaporn W.</b>· Platinum VIP · LTV <b>฿184,200</b> · AOV <b>฿1,240</b> · last 6d <span style="margin-left:auto;color:#6ee7b7;">tap → profile</span></div>
+            <div class="d-strip" style="border-bottom:none;padding-bottom:2px;"><span class="lbl">✦ Copilot picks — tap to insert</span></div>
+            <div class="d-recs">
+              <div class="d-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div><div class="p">฿320 · +12%</div></div></div>
+              <div class="d-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div><div class="p">฿180 · +9%</div></div></div>
+              <div class="d-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div><div class="p">฿95 · +7%</div></div></div>
+            </div>
+            <div class="d-strip" style="border-top:none;padding-top:2px;"><span class="lbl amber">🏷 On-going promos — tap to offer</span></div>
+            <div class="d-recs" style="padding-top:2px;">
+              <div class="d-promo"><div class="t">15% Off Organic Veg</div><div class="c">FRESH15WED · ends 24 Sep</div><div class="r">buys organic weekly</div></div>
+              <div class="d-promo"><div class="t">Free delivery ฿500+</div><div class="c">FREEDELIV · ends 30 Sep</div><div class="r">AOV above threshold</div></div>
+            </div>
+            <div class="nba opp">⚡ Next best: offer FRESH15WED before she asks price</div>
+            <div class="d-msgs">
+              <div class="d-bubble">Do you have the organic chicken? I ordered last week and it was out 😕<div class="meta">09:10</div><span class="intent">intent: stock-check</span></div></div>
+              <div class="d-bubble mine">Hi Nattaporn! Let me check the shelf for you — organic chicken (breast, 500g) is back in stock today ✅<div class="meta">09:11 · sent via LINE</div></div>
+              <div class="d-bubble">Great! And do you have the free-range eggs? I'm coming by after 5<div class="meta">09:12</div><span class="intent">intent: stock-check</span></div></div>
+            </div>
+            <div class="d-composer">
+              <div class="field">Reply…</div>
+              <div class="d-round ai" title="AI draft">✦</div>
+              <div class="d-round fill">➤</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes"><b>CRM strip</b> always visible when linked (tap → full profile sheet). <b>Copilot picks</b>: rule-based cross-sell with confidence — tap inserts product text into composer. <b>Promos</b> read live from /api/inbox/promotions. <b>NBA chip</b>: urgent (red) / opportunity (green). <b>Composer</b>: ✦ = AI draft (template or LLM), ➤ sends via LINE webhook. Full message history, no truncation.</div>
+      </div>
+
+      <!-- 1.3 CRM drawer -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">1.3</span> CRM DRAWER (bottom sheet)</div>
+        <div class="phone dark">
+          <div class="statusbar"><span>9:41</span><span>LINE OA · Staff</span><span>▮▮▮</span></div>
+          <div class="screen">
+            <div class="d-bar"><div style="font-size:14px;color:#94a3b8;">←</div><div class="d-ava" style="width:30px;height:30px;"></div><div style="flex:1;"><div class="d-title" style="font-size:12px;">081-234-xxxx</div><div class="d-sub">not linked to CRM</div></div><div style="font-size:9.5px;font-weight:800;color:#fcd34d;border:1px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.1);border-radius:8px;padding:5px 9px;">🔗 Link CRM</div></div>
+            <div class="d-msgs" style="flex:0.4;">
+              <div class="d-bubble">สวัสดีครับ มีโปรลดราคาอะไรไหมครับ<div class="meta">08:30</div></div>
+            </div>
+            <div class="dim"></div>
+            <div class="sheet">
+              <div class="grab"></div>
+              <div class="sheet-head"><span class="t">Customer CRM</span><span class="s">7 profiles in data lake</span><span class="x">✕</span></div>
+              <div class="sheet-search">🔍 081-234<span class="caret"></span> name · phone · The 1 card · LINE ID</div>
+              <div class="sheet-body">
+                <div class="cust-row sel">
+                  <div class="d-ava"></div>
+                  <div class="info"><div class="n">Nattaporn Wongsiri <span class="badge vip">VIP</span></div><div class="m">081-234-5678 · T1-892401</div><div class="m2">LTV ฿184,200 · AOV ฿1,240 · 42 orders · last 6d</div></div>
+                </div>
+                <div class="prof-grid">
+                  <div><div class="k">Segment</div><div class="v hl">Platinum VIP</div></div>
+                  <div><div class="k">Loyalty ID</div><div class="v">T1-892401</div></div>
+                  <div><div class="k">Top categories</div><div class="v">Organic, Dairy</div></div>
+                  <div><div class="k">Dietary</div><div class="v">Low-sugar</div></div>
+                  <div><div class="k">Recent purchase</div><div class="v">Organic chicken ฿320</div></div>
+                  <div><div class="k">LINE + PDPA</div><div class="v hl">Linked · consent ✓</div></div>
+                </div>
+                <div class="cust-row" style="padding:7px 10px;">
+                  <div class="info"><div class="n" style="font-size:10px;color:#94a3b8;">📝 Staff notes</div><div class="m2">Prefers calls after 5pm. Allergic to shellfish — flag any recipe suggestion.</div></div>
+                </div>
+              </div>
+              <button class="sheet-cta">Set as Active Customer (link this thread)</button>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Opens from "Link CRM" (unlinked thread) or the CRM strip (linked). Search by <b>name / phone / The 1 card / LINE ID</b>. Selected row expands to full profile inline; CTA links the thread to that customer. <span class="n">Open question (user):</span> is tap-to-expand the right interaction, or should staff see the profile without leaving the thread? Assessing what staff truly need before finalizing.</div>
+      </div>
+
+      <!-- 1.4 AI draft -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">1.4</span> AI DRAFT SHEET</div>
+        <div class="phone dark">
+          <div class="statusbar"><span>9:41</span><span>LINE OA · Staff</span><span>▮▮▮</span></div>
+          <div class="screen">
+            <div class="d-bar"><div style="font-size:14px;color:#94a3b8;">←</div><div class="d-ava" style="width:30px;height:30px;"></div><div style="flex:1;"><div class="d-title" style="font-size:12px;">Nattaporn W. <span class="badge vip">VIP</span></div><div class="d-sub">Uc99950503ba1c…</div></div></div>
+            <div class="d-msgs" style="flex:0.45;">
+              <div class="d-bubble">Great! And do you have the free-range eggs? I'm coming by after 5<div class="meta">09:12</div></div>
+              <div class="d-bubble mine" style="opacity:0.45;">(composer draft preview…)</div>
+            </div>
+            <div class="dim"></div>
+            <div class="sheet" style="max-height:62%;">
+              <div class="grab"></div>
+              <div class="sheet-head"><span class="t">✦ AI draft a reply</span><span class="s">answer-shaped · bilingual</span><span class="x">✕</span></div>
+              <div class="sheet-body" style="padding-top:12px;">
+                <div class="draft-box">
+                  <span class="src">source: template · stock-check</span><br/>
+                  Hi Nattaporn! Free-range eggs (30-pack) are in stock at the Dairy section — I can hold a pack for you. Since you're coming after 5, shall I also set aside the organic chicken so it's ready at the counter? 🥚
+                </div>
+              </div>
+              <div class="sheet-btns">
+                <div class="s-btn ghost">↻ Regenerate</div>
+                <div class="s-btn ghost">Insert</div>
+                <div class="s-btn primary">Send via LINE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Triggered by ✦ in composer. Source chip shows <b>template</b> vs <b>llm</b>. Draft is answer-shaped (answers the detected intent, not generic). <b>Insert</b> → composer (staff edits), <b>Send</b> → straight to LINE. Regenerate re-rolls with a different tone/offer.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= 2 · ADMIN PORTAL ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">2</span><h2>Admin Portal — HQ support</h2><span class="sec-route">/admin · desktop · login-gated · HQ support</span></div>
+    <p class="sec-desc">The HQ support team's view of the whole operation. Three tabs: <b>Performance</b> (KPIs, 14-day response trend, per-staff and per-branch tables), <b>Promotions</b> (CRUD — these feed the Chat Page's "on-going promos" strip), <b>Tickets</b> (staff questions, answer &amp; close). Dark chrome, same visual language as the Chat Page.</p>
+    <div class="frames">
+
+      <!-- 2.0 login -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">2.0</span> LOGIN</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">line-oa-ps-copilot.vercel.app/admin</div></div>
+          <div class="dapp" style="min-height:420px;display:flex;align-items:center;justify-content:center;">
+            <div class="login-card">
+              <div class="logo">🛒</div>
+              <h3>Personal Shopper Hub</h3>
+              <p>Admin Portal — HQ support</p>
+              <div class="d-input">Email</div>
+              <div class="d-input">Password</div>
+              <button class="go">Sign in</button>
+              <div class="login-note">demo creds hidden in production (Sprint 11 fix)</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Session-gated; 401 on unsigned webhook is handled separately (E2E fix t_46cf3dc7). No demo credentials printed in production.</div>
+      </div>
+
+      <!-- 2.1 performance -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">2.1</span> PERFORMANCE TAB</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/admin · Performance</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>admin portal · HQ support</small></div>
+              <div class="dapp-tabs"><span class="on">Performance</span><span>Promotions</span><span>Tickets</span></div>
+              <div class="right"><span class="sel">All branches ▾</span><span class="btn">Refresh</span></div>
+            </div>
+            <div class="dapp-body" style="flex-direction:column;min-height:460px;">
+              <div class="kpi-row">
+                <div class="kpi"><div class="k">Total threads</div><div class="v">1,284</div></div>
+                <div class="kpi"><div class="k">Active threads</div><div class="v">37</div></div>
+                <div class="kpi"><div class="k">Unread</div><div class="v">9</div></div>
+                <div class="kpi"><div class="k">Resolved today</div><div class="v">41</div></div>
+              </div>
+              <div class="kpi-row">
+                <div class="kpi hl"><div class="k">Avg first response (min)</div><div class="v">4.2</div></div>
+                <div class="kpi"><div class="k">Staff messages 24h</div><div class="v">212</div></div>
+                <div class="kpi warn"><div class="k">Open tickets</div><div class="v">3</div></div>
+                <div class="kpi"><div class="k">Promos live</div><div class="v">5</div></div>
+              </div>
+              <div class="chart">
+                <div class="grid"></div>
+                <div class="cap">Avg first response — 14 days</div>
+                <svg viewBox="0 0 700 120" preserveAspectRatio="none"><polyline points="20,70 70,55 120,62 170,40 220,48 270,35 320,52 370,30 420,44 470,26 520,38 570,22 620,30 680,18" fill="none" stroke="#10b981" stroke-width="2.5"/><polyline points="20,85 70,80 120,82 170,72 220,76 270,68 320,74 370,64 420,70 470,60 520,66 570,56 620,62 680,52" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 4"/></svg>
+              </div>
+              <div style="display:flex;gap:10px;">
+                <table class="dtable" style="flex:1.2;">
+                  <tr><th>Staff</th><th>Threads</th><th>1st resp</th><th>Resolved</th><th>Trend</th></tr>
+                  <tr><td>K. Somchai</td><td class="mono">312</td><td class="mono ok">3.1m</td><td class="mono">289</td><td class="ok">▲</td></tr>
+                  <tr><td>P. Anong</td><td class="mono">287</td><td class="mono ok">4.0m</td><td class="mono">261</td><td class="ok">▲</td></tr>
+                  <tr><td>T. Malee</td><td class="mono">198</td><td class="mono amber">6.8m</td><td class="mono">170</td><td class="no">▼</td></tr>
+                </table>
+                <table class="dtable" style="flex:1;">
+                  <tr><th>Branch</th><th>Threads</th><th>Unread</th><th>1st resp</th></tr>
+                  <tr><td>Rama 4</td><td class="mono">421</td><td class="mono">3</td><td class="mono ok">3.8m</td></tr>
+                  <tr><td>EmQuartier</td><td class="mono">388</td><td class="mono">2</td><td class="mono ok">4.1m</td></tr>
+                  <tr><td>Chidlom</td><td class="mono">475</td><td class="mono amber">4</td><td class="mono amber">5.2m</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes"><b>8 KPI cards</b> (accent = SLA-relevant: first response, open tickets). <b>Trend chart</b>: 14-day avg first response, solid = current, dashed = previous period. <b>Two tables</b>: per-staff (TanStack) and per-branch. Branch filter in top bar.</div>
+      </div>
+
+      <!-- 2.2 promotions -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">2.2</span> PROMOTIONS TAB</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/admin · Promotions</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>admin portal · HQ support</small></div>
+              <div class="dapp-tabs"><span>Performance</span><span class="on">Promotions</span><span>Tickets</span></div>
+              <div class="right"><span class="btn hl">＋ New promotion</span></div>
+            </div>
+            <div class="dapp-body" style="flex-direction:column;min-height:460px;">
+              <table class="dtable">
+                <tr><th>Code</th><th>Title</th><th>Type</th><th>Window</th><th>Min spend</th><th>Max disc.</th><th>Tiers</th><th>Status</th><th></th></tr>
+                <tr><td class="mono">FRESH15WED</td><td>15% Off Organic Vegetables</td><td>% off</td><td class="mono">17–24 Sep</td><td class="mono">200</td><td class="mono">150</td><td class="mono">GOLD, PLAT</td><td class="ok">● live</td><td><span class="mini-btn">Edit</span><span class="mini-btn">⏻</span><span class="mini-btn r">Del</span></td></tr>
+                <tr><td class="mono">FREEDELIV</td><td>Free delivery over ฿500</td><td>shipping</td><td class="mono">01–30 Sep</td><td class="mono">500</td><td class="mono">—</td><td class="mono">ALL</td><td class="ok">● live</td><td><span class="mini-btn">Edit</span><span class="mini-btn">⏻</span><span class="mini-btn r">Del</span></td></tr>
+                <tr><td class="mono">EGG2FOR1</td><td>2-for-1 Free Range Eggs</td><td>bundle</td><td class="mono">20–22 Sep</td><td class="mono">0</td><td class="mono">—</td><td class="mono">ALL</td><td class="amber">◐ scheduled</td><td><span class="mini-btn">Edit</span><span class="mini-btn">⏻</span><span class="mini-btn r">Del</span></td></tr>
+                <tr><td class="mono">VIP10</td><td>VIP 10% sitewide</td><td>% off</td><td class="mono">01–15 Sep</td><td class="mono">1000</td><td class="mono">400</td><td class="mono">PLAT</td><td class="no">○ ended</td><td><span class="mini-btn">Edit</span><span class="mini-btn">⏻</span><span class="mini-btn r">Del</span></td></tr>
+              </table>
+              <div style="border:1.5px dashed #475569;border-radius:12px;padding:12px;">
+                <div class="dcol-h" style="margin-bottom:8px;">CREATE / EDIT FORM (modal)</div>
+                <div class="form-grid">
+                  <div class="f-field"><label>Code *</label><div class="d-input">FRESH15WED</div></div>
+                  <div class="f-field"><label>Type</label><div class="d-input">% off ▾</div></div>
+                  <div class="f-field full"><label>Title *</label><div class="d-input">15% Off Organic Vegetables</div></div>
+                  <div class="f-field full"><label>Description (shown to staff)</label><div class="d-input" style="min-height:30px;">Organic veg 15% off Wednesdays…</div></div>
+                  <div class="f-field"><label>Categories (CSV)</label><div class="d-input">Fresh Produce, Dairy &amp; Eggs</div></div>
+                  <div class="f-field"><label>Min tiers</label><div class="d-input">GOLD, PLATINUM_VIP</div></div>
+                  <div class="f-field"><label>Starts *</label><div class="d-input">2026-09-17</div></div>
+                  <div class="f-field"><label>Ends *</label><div class="d-input">2026-09-24</div></div>
+                  <div class="f-field"><label>Min spend (฿)</label><div class="d-input">200</div></div>
+                  <div class="f-field"><label>Max discount (฿)</label><div class="d-input">150</div></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;"><span class="mini-btn">Cancel</span><span class="mini-btn g">Save promotion</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Validation: code/title/dates required, end ≥ start, numeric spend/discount. <b>⏻</b> activates/deactivates without deleting. Live promos are what the staff inbox's "on-going promos — tap to offer" strip reads (E2E fix t_619ae1a2).</div>
+      </div>
+
+      <!-- 2.3 tickets -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">2.3</span> TICKETS TAB</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/admin · Tickets</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>admin portal · HQ support</small></div>
+              <div class="dapp-tabs"><span>Performance</span><span>Promotions</span><span class="on">Tickets</span></div>
+              <div class="right"><span class="sel">All ▾</span></div>
+            </div>
+            <div class="dapp-body" style="flex-direction:column;min-height:460px;">
+              <div style="display:flex;gap:5px;align-items:center;">
+                <span class="d-chip on" style="color:#6ee7b7;border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.15);">All (5)</span>
+                <span class="d-chip">Open (3)</span><span class="d-chip">Answered (1)</span><span class="d-chip">Resolved (1)</span>
+                <span style="margin-left:auto;font-size:9px;color:#64748b;">staff questions about customers, promos, system</span>
+              </div>
+              <div class="ticket open">
+                <div class="top"><span class="tbadge open">OPEN</span><span class="subj">Customer says coupon FRESH15 didn't apply at Rama 4</span></div>
+                <div class="meta">P. Anong · Rama 4 · 09:02 · thread: Somchai K.</div>
+                <div class="ans"><div class="d-input">Type an answer…</div><div style="display:flex;justify-content:flex-end;margin-top:6px;"><span class="mini-btn g">Send answer</span></div></div>
+              </div>
+              <div class="ticket">
+                <div class="top"><span class="tbadge ans">ANSWERED</span><span class="subj">How do I extend a promo window for VIPs only?</span></div>
+                <div class="meta">T. Malee · Chidlom · yesterday · HQ answer below</div>
+                <div class="ans"><div class="d-input" style="color:#94a3b8;">Edit min tiers to PLATINUM_VIP and extend the end date — staff see it live in the inbox strip. <span style="color:#64748b;">— HQ, 18 Sep</span></div><div style="display:flex;justify-content:flex-end;margin-top:6px;"><span class="mini-btn g">Mark resolved</span></div></div>
+              </div>
+              <div class="ticket">
+                <div class="top"><span class="tbadge res">RESOLVED</span><span class="subj">Delivery slot confusion on weekend orders</span></div>
+                <div class="meta">K. Somchai · EmQuartier · 16 Sep · closed by HQ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Filter chips with counts. Open tickets get a green left border + inline answer box. Answered → HQ can mark resolved. Tickets originate from staff (question about a thread) and show the linked thread + branch.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= 3 · OPS DASHBOARD ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">3</span><h2>Support workbench (internal ops)</h2><span class="sec-route">/ · desktop · HQ support · 4 tabs + phone simulator</span></div>
+    <p class="sec-desc">Internal workbench for HQ support / ops (not customer-facing): pick a customer, see their CRM profile, get AI cross-sell recs, and push a Flex message into their LINE chat. Plus segmentation rules, CRM↔LINE identity mapping, and the raw data lake. A live LINE phone simulator (right rail) previews exactly what the customer's chat will show. The Staff Console tab is the desktop twin of the Chat Page.</p>
+    <div class="frames">
+
+      <!-- 3.1 staff console -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">3.1</span> STAFF CONSOLE (default tab)</div>
+        <div class="desk" style="width:820px;">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">line-oa-ps-copilot.vercel.app</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>support workbench</small></div>
+              <div class="dapp-tabs"><span class="on">Staff Console</span><span>Segmentation</span><span>CRM↔LINE</span><span>Data Lake</span></div>
+              <div class="right"><span class="sel">All Branches (National) ▾</span><span class="btn hl">📱 Phone preview</span><span class="btn">Grill Me</span></div>
+            </div>
+            <div class="dapp-body">
+              <div class="dcol w280">
+                <div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--dark-line);padding-bottom:10px;">
+                  <div class="d-ava" style="width:32px;height:32px;"></div>
+                  <div><div class="n" style="font-size:11px;font-weight:700;color:#fff;">K. Somchai</div><div class="m" style="font-size:8.5px;color:#6ee7b7;">Frontline · ST-0042</div></div>
+                </div>
+                <div class="d-input">🔍 Search Name, Phone, LINE UID…</div>
+                <div style="display:flex;gap:5px;"><div class="d-input" style="flex:1;">All Tiers ▾</div><div class="d-chip on">LINE Only</div></div>
+                <div class="dcol-h">Store customers (7)</div>
+                <div class="d-rowlist">
+                  <div class="d-rowitem sel"><div class="d-ava" style="width:26px;height:26px;"></div><div style="flex:1;min-width:0;"><div class="n">Nattaporn W. <span class="badge vip">VIP</span></div><div class="m">081-234-5678 · T1-892401</div></div></div>
+                  <div class="d-rowitem"><div class="d-ava" style="width:26px;height:26px;"></div><div style="flex:1;min-width:0;"><div class="n">Somchai K. <span class="badge gold">GOLD</span></div><div class="m">089-111-2233 · T1-556712</div></div></div>
+                  <div class="d-rowitem"><div class="d-ava gray" style="width:26px;height:26px;"></div><div style="flex:1;min-width:0;"><div class="n">Kanya P. <span class="badge silver">SILVER</span></div><div class="m">086-777-8899 · —</div></div></div>
+                  <div class="d-rowitem"><div class="d-ava gray" style="width:26px;height:26px;"></div><div style="flex:1;min-width:0;"><div class="n">Weera T. <span class="badge member">MEMBER</span></div><div class="m">081-444-5566 · —</div></div></div>
+                </div>
+              </div>
+              <div class="dcol flex">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div><div style="font-size:14px;font-weight:800;color:#fff;">Nattaporn Wongsiri <span class="badge vip">PLATINUM VIP</span></div><div style="font-size:9px;color:#64748b;font-family:var(--mono);margin-top:2px;">Uc99950503ba1c47fc5e8c814e41a824c · Tops Rama 4</div></div>
+                  <span class="mini-btn g">＋ Link LINE</span>
+                </div>
+                <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
+                  <div class="kpi"><div class="k">Total spend (LTV)</div><div class="v">฿184.2k</div></div>
+                  <div class="kpi"><div class="k">Avg basket (AOV)</div><div class="v">฿1,240</div></div>
+                  <div class="kpi"><div class="k">Inactivity</div><div class="v">6d</div></div>
+                  <div class="kpi"><div class="k">Preferred promo</div><div class="v" style="font-size:11px;">% off</div></div>
+                </div>
+                <div class="d-input center" style="border-color:rgba(99,102,241,0.5);color:#a5b4fc;">✦ AI contextual prompt: "VIP buying organic weekly, 6d since last visit — offer FRESH15WED + hold stock"</div>
+                <div class="dcol-h">AI recommended cross-sell (3)</div>
+                <div class="d-rowlist">
+                  <div class="d-rowitem"><div style="width:30px;height:30px;border-radius:8px;background:repeating-linear-gradient(45deg,#1e293b 0 4px,#16202f 4px 8px);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div class="n">Organic Chicken Breast 500g <span style="font-size:8px;color:#64748b;">/ pack</span></div><div class="m">buys weekly · out-of-stock last visit</div></div><div style="text-align:right;"><div style="font-size:10px;color:#6ee7b7;font-family:var(--mono);font-weight:700;">฿320 · +12%</div><span class="mini-btn g" style="margin-top:4px;">Send to LINE ➤</span></div></div>
+                  <div class="d-rowitem"><div style="width:30px;height:30px;border-radius:8px;background:repeating-linear-gradient(45deg,#1e293b 0 4px,#16202f 4px 8px);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div class="n">Free-Range Eggs 30-pack</div><div class="m">pairs with chicken · low-sugar profile</div></div><div style="text-align:right;"><div style="font-size:10px;color:#6ee7b7;font-family:var(--mono);font-weight:700;">฿180 · +9%</div><span class="mini-btn g" style="margin-top:4px;">Send to LINE ➤</span></div></div>
+                </div>
+                <div class="dcol-h">Recent LINE push log</div>
+                <div class="d-rowitem"><span class="dot"></span><div style="flex:1;"><div class="n" style="font-size:10px;">Flex card: Organic Chicken 500g</div><div class="m">delivered 09:11 · opened</div></div></div>
+              </div>
+              <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+                <div class="dcol-h" style="text-align:center;">LINE phone preview</div>
+                <div class="phone-mini">
+                  <div class="ph-head">Tops OA · @732xokoy</div>
+                  <div class="ph-body">
+                    <div class="ph-bub">สวัสดียินดีต้อนรับครับ 🛒</div>
+                    <div class="ph-bub mine flex">🍗 Organic Chicken 500g — ฿320 [Flex card]</div>
+                    <div class="ph-bub">ขอบคุณครับ!</div>
+                    <div class="ph-bub mine flex">🥚 Free-Range Eggs — ฿180 [Flex card]</div>
+                  </div>
+                </div>
+                <div class="liff-note" style="font-size:8.5px;padding:7px 9px;">Simulator: shows exactly what the customer's LINE chat renders (Flex messages, pushes, link status).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Left: staff identity + customer directory (search, tier filter, LINE-only). Center: CRM KPIs, AI contextual prompt, cross-sell recs with <b>Send to LINE</b> (Flex push), push log. Right: live phone simulator of the customer's chat. "Grill Me" opens the strategic audit modal; comparison modal shows frontline UX options.</div>
+      </div>
+
+      <!-- 3.2 segmentation -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">3.2</span> SEGMENTATION HUB</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/ · Segmentation</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>support workbench</small></div>
+              <div class="dapp-tabs"><span>Staff Console</span><span class="on">Segmentation</span><span>CRM↔LINE</span><span>Data Lake</span></div>
+              <div class="right"><span class="btn hl">＋ New rule</span></div>
+            </div>
+            <div class="dapp-body">
+              <div class="dcol w280">
+                <div class="dcol-h">Rules (4)</div>
+                <div class="d-rowlist">
+                  <div class="d-rowitem sel"><div style="flex:1;"><div class="n">Win-back: inactive 14d</div><div class="m">Fresh Produce · min ฿1,000 · 3 hits</div></div><span class="mini-btn g">auto ✓</span></div>
+                  <div class="d-rowitem"><div style="flex:1;"><div class="n">VIP birthday</div><div class="m">PLATINUM · 7d window · 1 hit</div></div><span class="mini-btn">auto ✓</span></div>
+                  <div class="d-rowitem"><div style="flex:1;"><div class="n">Basket upsell ฿800+</div><div class="m">AOV rule · 5 hits</div></div><span class="mini-btn">off</span></div>
+                </div>
+                <div class="dcol-h" style="margin-top:4px;">New rule form</div>
+                <div class="f-field"><label>Name</label><div class="d-input">Win-back: inactive 14d</div></div>
+                <div class="form-grid">
+                  <div class="f-field"><label>Category</label><div class="d-input">Fresh Produce ▾</div></div>
+                  <div class="f-field"><label>Inactivity (d)</label><div class="d-input">14</div></div>
+                  <div class="f-field"><label>Min spend</label><div class="d-input">1000</div></div>
+                  <div class="f-field"><label>Discount</label><div class="d-input">15% Off</div></div>
+                </div>
+                <div class="f-field"><label>Thai title</label><div class="d-input">กลับมาหาเราสิ! ลด 15%</div></div>
+                <div class="f-field"><label>Thai body</label><div class="d-input">คิดถึงเมนูโปรดของคุณ…</div></div>
+                <div class="f-field"><label>Promo code</label><div class="d-input">FLASH15</div></div>
+              </div>
+              <div class="dcol flex">
+                <div class="dcol-h">Evaluation — "Win-back: inactive 14d"</div>
+                <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
+                  <div class="kpi"><div class="k">Matches</div><div class="v">3 / 7</div></div>
+                  <div class="kpi hl"><div class="k">Est. revenue lift</div><div class="v">฿4,300</div></div>
+                  <div class="kpi warn"><div class="k">LINE broadcast cost</div><div class="v">฿0.90</div></div>
+                </div>
+                <table class="dtable">
+                  <tr><th>Customer</th><th>Segment</th><th>Last purchase</th><th>Days idle</th><th>LTV</th><th></th></tr>
+                  <tr><td>Kanya P. <span class="badge silver">SILVER</span></td><td>Win-back</td><td class="mono">04 Sep</td><td class="mono amber">15</td><td class="mono">฿38,400</td><td><span class="mini-btn g">Push now</span></td></tr>
+                  <tr><td>Weera T. <span class="badge member">MEMBER</span></td><td>Win-back</td><td class="mono">03 Sep</td><td class="mono amber">16</td><td class="mono">฿12,100</td><td><span class="mini-btn g">Push now</span></td></tr>
+                  <tr><td>Priya S. <span class="badge gold">GOLD</span></td><td>Win-back</td><td class="mono">05 Sep</td><td class="mono amber">14</td><td class="mono">฿71,900</td><td><span class="mini-btn g">Push now</span></td></tr>
+                </table>
+                <div style="display:flex;gap:8px;margin-top:auto;"><span class="mini-btn g">▶ Run trigger simulation (send to all matches)</span><span class="mini-btn">Toggle auto-send</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Rule = category + inactivity days + min spend → Thai-language push copy + promo code. Right pane evaluates live against the data lake: match count, <b>revenue vs LINE broadcast cost</b> (segmentationEngine), per-customer table. "Run trigger simulation" fires real pushes (logged to push log).</div>
+      </div>
+
+      <!-- 3.3 mapping -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">3.3</span> CRM ↔ LINE MAPPING</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/ · CRM↔LINE Mapping</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>support workbench</small></div>
+              <div class="dapp-tabs"><span>Staff Console</span><span>Segmentation</span><span class="on">CRM↔LINE</span><span>Data Lake</span></div>
+              <div class="right"><span class="sel">Mapping rate: 43% (3/7)</span></div>
+            </div>
+            <div class="dapp-body" style="flex-direction:column;min-height:460px;">
+              <div style="display:flex;gap:10px;align-items:center;border:1px solid var(--dark-line);border-radius:12px;background:#0d131f;padding:10px 12px;">
+                <div style="flex:1;font-size:10px;color:#94a3b8;">Deterministic identity resolution against the CRM customer table — phone, The 1 card, or LINE ID match.</div>
+                <span class="mini-btn g">▶ Run resolution</span>
+              </div>
+              <table class="dtable">
+                <tr><th>Customer (CRM)</th><th>Phone</th><th>The 1 card</th><th>LINE UID</th><th>Status</th><th></th></tr>
+                <tr><td>Nattaporn W. <span class="badge vip">VIP</span></td><td class="mono">081-234-5678</td><td class="mono">T1-892401</td><td class="mono">Uc99950503…</td><td class="ok">● linked</td><td><span class="mini-btn r">Unlink</span></td></tr>
+                <tr><td>Somchai K. <span class="badge gold">GOLD</span></td><td class="mono">089-111-2233</td><td class="mono">T1-556712</td><td class="mono">Uc77aa21…</td><td class="ok">● linked</td><td><span class="mini-btn r">Unlink</span></td></tr>
+                <tr><td>Priya S. <span class="badge gold">GOLD</span></td><td class="mono">082-333-4455</td><td class="mono">T1-778899</td><td class="mono">Uc11bb09…</td><td class="ok">● linked</td><td><span class="mini-btn r">Unlink</span></td></tr>
+                <tr><td>Kanya P. <span class="badge silver">SILVER</span></td><td class="mono">086-777-8899</td><td class="mono">—</td><td class="mono no">—</td><td class="amber">◐ queued</td><td><span class="mini-btn g">Link</span></td></tr>
+                <tr><td>Weera T. <span class="badge member">MEMBER</span></td><td class="mono">081-444-5566</td><td class="mono">—</td><td class="mono no">—</td><td class="no">○ unlinked</td><td><span class="mini-btn g">Link</span></td></tr>
+              </table>
+              <div style="font-size:9.5px;color:#64748b;font-family:var(--mono);">queue: 2 pending · last run 09:15 · webhook delivers userId only → fetchLineProfile() resolves avatar + name (server/app.ts)</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">The identity backbone: mapping rate shown in the header. Linked customers unlock CRM context everywhere (staff inbox strip, console, LIFF). Unlinked threads in the inbox show the amber "Link CRM" path. Webhook carries userId only — profile fetched server-side.</div>
+      </div>
+
+      <!-- 3.4 data lake -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">3.4</span> DATA LAKE MANAGER</div>
+        <div class="desk">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/ · Data Lake</div></div>
+          <div class="dapp">
+            <div class="dapp-top">
+              <div class="brand">Personal Shopper Hub<small>support workbench</small></div>
+              <div class="dapp-tabs"><span>Staff Console</span><span>Segmentation</span><span>CRM↔LINE</span><span class="on">Data Lake</span></div>
+              <div class="right"><span class="btn">⟳ Refresh</span><span class="btn">Export CSV</span></div>
+            </div>
+            <div class="dapp-body" style="flex-direction:column;min-height:460px;">
+              <div style="font-size:10px;color:#94a3b8;">Stage 1 proof-of-concept — spreadsheet tables before enterprise BigQuery / Snowflake.</div>
+              <div style="display:flex;gap:5px;">
+                <span class="d-chip on">CUSTOMERS (7)</span><span class="d-chip">LINE_MAPPING (7)</span><span class="d-chip">TRANSACTIONS (142)</span><span class="d-chip">CATALOG (36)</span>
+              </div>
+              <div class="d-input" style="max-width:320px;">🔍 Filter rows…</div>
+              <table class="dtable">
+                <tr><th>crm_customer_id</th><th>name</th><th>tier</th><th>loyalty_id</th><th>ltv</th><th>aov</th><th>orders</th><th>last_purchase</th><th>line_uid</th></tr>
+                <tr><td class="mono">C-001</td><td>Nattaporn W.</td><td class="amber">PLATINUM_VIP</td><td class="mono">T1-892401</td><td class="mono">184200</td><td class="mono">1240</td><td class="mono">42</td><td class="mono">2026-09-13</td><td class="mono ok">Uc9995…</td></tr>
+                <tr><td class="mono">C-002</td><td>Somchai K.</td><td class="amber">GOLD</td><td class="mono">T1-556712</td><td class="mono">61300</td><td class="mono">980</td><td class="mono">23</td><td class="mono">2026-09-15</td><td class="mono ok">Uc77aa…</td></tr>
+                <tr><td class="mono">C-003</td><td>Kanya P.</td><td>SILVER</td><td class="mono">—</td><td class="mono">38400</td><td class="mono">760</td><td class="mono">17</td><td class="mono">2026-09-04</td><td class="mono no">—</td></tr>
+                <tr><td class="mono">C-004</td><td>Weera T.</td><td>MEMBER</td><td class="mono">—</td><td class="mono">12100</td><td class="mono">540</td><td class="mono">9</td><td class="mono">2026-09-03</td><td class="mono no">—</td></tr>
+              </table>
+              <div style="font-size:9px;color:#475569;font-family:var(--mono);">… 3 more rows · schema view shows column types + row counts per table</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Four tables: CUSTOMERS, LINE_MAPPING, TRANSACTIONS, CATALOG. Searchable, exportable. This is the single source of truth — the frontend loads 7 profiles from DataLakeService (not the 2-row API mockDb). Refresh re-reads after link/unlink/campaign actions.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= 4 · CUSTOMER TOUCHPOINTS (LINE CHAT) ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">4</span><h2>Customer touchpoints — inside LINE, no app</h2><span class="sec-route">customer's LINE chat · no login · no LIFF</span></div>
+    <p class="sec-desc"><b>Decision (2026-09-19): the customer does not use this product.</b> The Personal Shopper channel lives entirely inside the customer's LINE chat. The customer receives Flex cards (product recs, promo codes), can tap a tel: deep-link to call the personal shopper, and every touchpoint is logged to the journey log on the staff side. The old LIFF app (The 1 card, coupons, staff copilot) is out of scope.</p>
+    <div class="frames">
+
+      <!-- 4.1 product flex card -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">4.1</span> PRODUCT FLEX CARD (in chat)</div>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>LINE</span><span>▮▮▮</span></div>
+          <div class="screen" style="background:#eae5dc;">
+            <div style="background:#fff;border-bottom:1px solid #d8d2c6;padding:9px 12px;display:flex;align-items:center;gap:8px;">
+              <div style="font-size:13px;color:#6b6b6b;">←</div>
+              <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#06c755,#2563eb);"></div>
+              <div><div style="font-size:12px;font-weight:800;color:#2b2b2b;">Tops Personal Shopper</div><div style="font-size:9px;color:#9a9a9a;">● online · @732xokoy</div></div>
+            </div>
+            <div style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+              <div class="d-bubble">สวัสดียินดรีต้อนรบัครบั! มรีใหชว่ ยไหมครบั 🛒<div class="meta">09:05</div></div>
+              <div class="d-bubble mine">มไีกอ์ รเ์กนิคไหมครบั<div class="meta">09:08</div></div>
+              <div class="d-bubble">มีครบั! จัดใหล้ ะเลย ✅<div class="meta">09:09</div></div>
+              <div style="max-width:82%;align-self:flex-end;background:#d6f5e3;border:1px solid #b5e3c8;border-radius:12px;overflow:hidden;">
+                <div style="height:64px;background:repeating-linear-gradient(45deg,#cfe8d8 0 8px,#c2e2cc 8px 16px);"></div>
+                <div style="padding:8px 10px;background:#fff;border-top:1px solid #d8d2c6;">
+                  <div style="font-size:11px;font-weight:800;color:#2b2b2b;">Organic Chicken Breast 500g</div>
+                  <div style="font-size:9.5px;color:#6b6b6b;margin-top:1px;">฿320 · Fresh Produce</div>
+                  <div style="display:flex;gap:6px;margin-top:7px;">
+                    <span style="flex:1;text-align:center;font-size:9.5px;font-weight:800;background:#06c755;color:#fff;border-radius:7px;padding:6px;">Add to order</span>
+                    <span style="font-size:9.5px;font-weight:700;border:1px solid #c9c9c4;border-radius:7px;padding:6px 9px;color:#6b6b6b;">📞 Call</span>
+                  </div>
+                </div>
+              </div>
+              <div class="d-bubble mine">เอาดว้ ยครบั 🙏<div class="meta">09:12</div></div>
+            </div>
+            <div style="background:#fff;border-top:1px solid #d8d2c6;padding:8px 12px;display:flex;gap:7px;align-items:center;">
+              <div style="flex:1;border:1px solid #c9c9c4;border-radius:999px;padding:7px 12px;font-size:10.5px;color:#9a9a9a;">Message</div>
+              <div style="width:30px;height:30px;border-radius:50%;background:#06c755;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;">➤</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">What the customer actually sees: a normal LINE chat with the OA. Product recs arrive as <b>Flex cards</b> (staff taps "Send to LINE" on the Chat Page or workbench). "Add to order" = LINE messaging API action; "📞 Call" = <b>tel: deep-link</b> to the personal shopper. No app install, no login, no LIFF.</div>
+      </div>
+
+      <!-- 4.2 promo flex card -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">4.2</span> PROMO FLEX CARD + CALL LINK</div>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>LINE</span><span>▮▮▮</span></div>
+          <div class="screen" style="background:#eae5dc;">
+            <div style="background:#fff;border-bottom:1px solid #d8d2c6;padding:9px 12px;display:flex;align-items:center;gap:8px;">
+              <div style="font-size:13px;color:#6b6b6b;">←</div>
+              <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#06c755,#2563eb);"></div>
+              <div><div style="font-size:12px;font-weight:800;color:#2b2b2b;">Tops Personal Shopper</div><div style="font-size:9px;color:#9a9a9a;">● online · @732xokoy</div></div>
+            </div>
+            <div style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+              <div class="d-bubble">วันนี้มรีโผพเิ ศษสำหรบั คณครบั! 🎉<div class="meta">09:20</div></div>
+              <div style="max-width:82%;align-self:flex-end;background:#fff;border:1.5px dashed #d4a017;border-radius:12px;overflow:hidden;">
+                <div style="padding:10px 12px;">
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:0.08em;color:#b45309;">PROMO · ends 24 Sep</div>
+                  <div style="font-size:12px;font-weight:800;color:#2b2b2b;margin-top:4px;">15% Off Organic Vegetables</div>
+                  <div style="font-family:var(--mono);font-size:13px;font-weight:800;color:#b45309;letter-spacing:0.1em;margin-top:5px;">FRESH15WED</div>
+                  <div style="font-size:9px;color:#6b6b6b;margin-top:3px;">min ฿200 · max ฿150 off · use at checkout</div>
+                </div>
+                <div style="display:flex;border-top:1px solid #e2e2dd;">
+                  <span style="flex:1;text-align:center;font-size:9.5px;font-weight:800;background:#06c755;color:#fff;padding:8px;">Use at checkout</span>
+                  <span style="font-size:9.5px;font-weight:700;padding:8px 10px;color:#6b6b6b;border-left:1px solid #e2e2dd;">📞 Call</span>
+                </div>
+              </div>
+              <div class="d-bubble mine">ขอบคณุ ครบั! จะไปวันศกุ รีนะ<div class="meta">09:21</div></div>
+              <div class="d-bubble">ไดเ้ ลยครบั! ถา้ อยากให้อาดิ นไว บอกไดล้ ะเลยนะ 🙌<div class="meta">09:21</div></div>
+            </div>
+            <div style="background:#fff;border-top:1px solid #d8d2c6;padding:8px 12px;display:flex;gap:7px;align-items:center;">
+              <div style="flex:1;border:1px solid #c9c9c4;border-radius:999px;padding:7px 12px;font-size:10.5px;color:#9a9a9a;">Message</div>
+              <div style="width:30px;height:30px;border-radius:50%;background:#06c755;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;">➤</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-notes">Promos created in the Admin Portal appear as tappable cards in the chat when staff offer them. The code is used at checkout (The 1 card / POS) — the customer never "claims" anything inside our product. Call initiation keeps the journey in LINE (user direction: tel: + journey log).</div>
+      </div>
+
+      <!-- 4.3 out of scope -->
+      <div class="frame-unit">
+        <div class="frame-label"><span class="pill">4.3</span> OUT OF SCOPE — LIFF APP REMOVED</div>
+        <div class="desk" style="width:540px;">
+          <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="url">/?liff — deprecated</div></div>
+          <div class="dapp" style="min-height:380px;padding:16px;">
+            <div style="font-size:12px;font-weight:800;color:#fca5a5;margin-bottom:10px;">✕ LIFF customer app — out of scope (decision 2026-09-19)</div>
+            <table class="dtable">
+              <tr><th>Old LIFF feature</th><th>Where it goes now</th></tr>
+              <tr><td>The 1 card + barcode</td><td>Customer uses The 1 app / QR at checkout — not ours to build</td></tr>
+              <tr><td>Coupons tab (claim)</td><td>Promo Flex cards in chat; code used at POS</td></tr>
+              <tr><td>Staff copilot / sales whisper</td><td>Chat Page (mobile) + support workbench (desktop) — staff-only</td></tr>
+              <tr><td>Customer LIFF login</td><td>Removed — customer never authenticates to this product</td></tr>
+            </table>
+            <div class="liff-note" style="margin-top:12px;">Customer data (LTV, AOV, recs) stays on the <b>staff side</b>. The customer only ever sees what staff chooses to send: Flex cards, promo codes, tel: links — all logged to the journey log.</div>
+          </div>
+        </div>
+        <div class="frame-notes">The "Sales Whisper" (LTV/AOV + AI recs) was staff context crammed into the customer's own app — confusing and a bit creepy. It moves to the Chat Page thread detail (already there as the copilot strip) and the desktop workbench.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= 5 · FLOWS ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">5</span><h2>Key flows</h2></div>
+    <p class="sec-desc">How the surfaces connect. Every flow ends in a LINE message to the customer or a data-lake write.</p>
+    <div class="flows">
+      <div class="flow">
+        <div class="fh"><span class="num">F1</span><span class="t">Customer asks about stock → staff replies with AI assist</span></div>
+        <div class="steps">
+          <span class="st">Customer LINE msg → <b>webhook</b> (userId)</span><span class="ar">→</span>
+          <span class="st">Staff Inbox <b>thread list</b> (priority sort)</span><span class="ar">→</span>
+          <span class="st">Thread detail: <b>intent chip</b> + CRM strip</span><span class="ar">→</span>
+          <span class="st ai">✦ AI draft (answer-shaped)</span><span class="ar">→</span>
+          <span class="st">Staff edits / sends</span><span class="ar">→</span>
+          <span class="st hl">Reply delivered via LINE</span>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">F2</span><span class="t">Unlinked customer → CRM identity resolution</span></div>
+        <div class="steps">
+          <span class="st">Thread shows <b>amber "not linked"</b></span><span class="ar">→</span>
+          <span class="st">Staff taps <b>Link CRM</b></span><span class="ar">→</span>
+          <span class="st">CRM drawer: search <b>phone / name / The 1</b></span><span class="ar">→</span>
+          <span class="st">Profile expands → <b>Set as Active Customer</b></span><span class="ar">→</span>
+          <span class="st hl">Thread now shows CRM context + copilot picks</span>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">F3</span><span class="t">HQ creates promo → staff offers it → customer claims</span></div>
+        <div class="steps">
+          <span class="st">Admin <b>Promotions: New</b> (code, window, tiers)</span><span class="ar">→</span>
+          <span class="st">Live in <b>staff inbox</b> "on-going promos" strip</span><span class="ar">→</span>
+          <span class="st">Staff taps promo → <b>inserts into reply</b></span><span class="ar">→</span>
+          <span class="st">Customer sees <b>promo Flex card</b> in chat</span><span class="ar">→</span>
+          <span class="st hl">Code used at checkout (The 1 card / POS)</span>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">F4</span><span class="t">In-store upsell: staff copilot → Flex card in chat</span></div>
+        <div class="steps">
+          <span class="st">Customer chats with OA (in store)</span><span class="ar">→</span>
+          <span class="st">Staff opens thread: <b>CRM strip + AI recs</b></span><span class="ar">→</span>
+          <span class="st ai">AI recs (recommendationEngine, confidence)</span><span class="ar">→</span>
+          <span class="st">Staff taps <b>Send to LINE</b></span><span class="ar">→</span>
+          <span class="st hl">Flex card in customer chat → tap → order</span>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">F5</span><span class="t">Win-back campaign: rule → simulation → broadcast</span></div>
+        <div class="steps">
+          <span class="st">Segmentation: <b>new rule</b> (inactivity + spend)</span><span class="ar">→</span>
+          <span class="st">Live evaluation: <b>matches + revenue vs LINE cost</b></span><span class="ar">→</span>
+          <span class="st"><b>Run trigger simulation</b></span><span class="ar">→</span>
+          <span class="st hl">Thai push + promo code → LINE · logged to push log</span>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">F6</span><span class="t">Staff question → HQ ticket → answer</span></div>
+        <div class="steps">
+          <span class="st">Staff raises <b>ticket</b> (from a thread)</span><span class="ar">→</span>
+          <span class="st">Admin <b>Tickets: open</b> (branch + thread linked)</span><span class="ar">→</span>
+          <span class="st">HQ <b>answers</b></span><span class="ar">→</span>
+          <span class="st hl">Mark resolved · KPI "open tickets" drops</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6 · OPEN QUESTIONS ================= -->
+  <section>
+    <div class="sec-head"><span class="sec-num">6</span><h2>Open questions (from user direction, 2026-09-19)</h2></div>
+    <div class="flows">
+      <div class="flow">
+        <div class="fh"><span class="num">Q1</span><span class="t">CRM search interaction in the staff inbox</span></div>
+        <div class="steps"><span class="st">User: app is good, but <b>clicking to show another customer's data</b> feels off — assess what staff truly need before finalizing UX. (Frame 1.3)</span></div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">Q2</span><span class="t">Journey stays in LINE OA</span></div>
+        <div class="steps"><span class="st">Call via <b>LINE deep-link / tel:</b> + journey log · media via <b>Vercel Blob</b> · CRM drawer minimize/expand · AI-draft needs <b>AI icon</b> (done: ✦ Sparkles, commit 050cda2). Cards: t_4d40c2ce, t_77d82892, t_f3033cf5, t_78d15631</span></div>
+      </div>
+      <div class="flow">
+        <div class="fh"><span class="num">Q3</span><span class="t">Rebrand rollout (decided 2026-09-19, pending implementation)</span></div>
+        <div class="steps"><span class="st">Rename surfaces in UI: <b>Chat Page</b> (/staff) + <b>Admin Portal</b> (/admin)</span><span class="ar">→</span>
+          <span class="st">Deprecate <b>/?liff</b> customer app (remove or 404)</span><span class="ar">→</span>
+          <span class="st">Reposition ops dashboard as <b>support workbench</b></span><span class="ar">→</span>
+          <span class="st hl">Confirm scope before touching repo</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <b>Source of truth:</b> src/App.tsx (routes: /admin, /staff, LIFF mode, ops tabs) · src/components/StaffInbox.tsx · src/admin/{AdminPortal,Dashboard,Promotions,Tickets}.tsx · src/components/{StaffConsole,SegmentationHub,CrmLineMappingView,DataLakeManager,CustomerCrmDrawer}.tsx · server/app.ts (webhook + fetchLineProfile).<br/>
+    <b>Decision (2026-09-19):</b> product rebranded to <b>Personal Shopper Hub</b> — real audience is store staff + HQ support only; customers stay in LINE chat and never use this product (LIFF app out of scope).<br/>
+    <b>Companion detail wireframe:</b> /docs/wireframes/staff-inbox-v2.html (Chat Page deep-dive, AS-IS vs TO-BE). This file is the whole-product map.
+  </div>
+
+</div>
+</body>
+</html>
