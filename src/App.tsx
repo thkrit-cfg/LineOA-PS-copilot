@@ -11,6 +11,7 @@ import { OpsStrategicAuditModal } from './components/OpsStrategicAuditModal';
 import { FrontlineOptionComparisonModal } from './components/FrontlineOptionComparisonModal';
 import { LiffMobileApp } from './components/LiffMobileApp';
 import { StaffInbox } from './components/StaffInbox';
+import { AdminPortal } from './admin/AdminPortal';
 
 export default function App() {
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
@@ -23,6 +24,9 @@ export default function App() {
   const [showPhonePreview, setShowPhonePreview] = useState<boolean>(true);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [isFrontlineComparisonOpen, setIsFrontlineComparisonOpen] = useState<boolean>(true);
+
+  // Admin portal (HQ) — dedicated /admin route (checked before LIFF mode)
+  const isAdminPortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
 
   // Pure-human staff inbox PWA — dedicated /staff route (checked before LIFF mode)
   const isStaffInbox = typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/staff');
@@ -106,6 +110,11 @@ export default function App() {
 
   const mappedCount = customers.filter(c => c.lineUid).length;
   const mappingRate = customers.length > 0 ? Math.round((mappedCount / customers.length) * 100) : 0;
+
+  // Admin portal (HQ) — dedicated /admin route, rendered before everything else.
+  if (isAdminPortal) {
+    return <AdminPortal />;
+  }
 
   // Pure-human staff inbox PWA (dedicated /staff route) — render before the
   // data-lake loading guard so the inbox shows immediately.
