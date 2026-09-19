@@ -30,6 +30,8 @@ export interface InboxMessage {
   from: 'customer' | 'staff';
   text: string;
   ts: number;
+  /** Sprint 10: staff attribution (staff_users.id) when a staff member replied. */
+  staffId?: string;
 }
 
 export type ThreadStatus = 'active' | 'snoozed' | 'done';
@@ -45,6 +47,10 @@ export interface Thread {
   lastTs: number;
   status: ThreadStatus;
   snoozeUntil: number;
+  /** Sprint 10: staff_users.id of the last staff replier (inbox_threads.replied_by). */
+  repliedBy?: string | null;
+  /** Sprint 10: last write time (ms epoch) — from inbox_threads.updated_at. */
+  updatedAt: number;
 }
 
 export interface ThreadSummary {
@@ -59,6 +65,8 @@ export interface ThreadSummary {
   unread: number;
   status: ThreadStatus;
   snoozeUntil: number;
+  /** Sprint 10: staff_users.id of the last staff replier. */
+  repliedBy?: string | null;
   /** Sprint 3: value-priority score (0-100) + flags — enriched by the API. */
   priority?: number;
   priorityFlags?: Array<'high_value' | 'at_risk'>;
@@ -73,7 +81,7 @@ interface InboxStore {
     isLineFriend: boolean,
     avatarUrl?: string
   ): Promise<Thread | null>;
-  appendStaffMessage(lineUid: string, text: string): Promise<Thread | null>;
+  appendStaffMessage(lineUid: string, text: string, staffId?: string): Promise<Thread | null>;
   linkCrm(
     lineUid: string,
     crmCustomerId: string,
@@ -83,6 +91,14 @@ interface InboxStore {
   setStatus(lineUid: string, status: ThreadStatus, snoozeUntil?: number): Promise<Thread | null>;
   listThreads(): Promise<ThreadSummary[]>;
   getThread(lineUid: string): Promise<Thread | null>;
+  /** Sprint 10: read every thread without side effects (does NOT clear unread). */
+  getAllThreads(): Promise<Thread[]>;
+  /**
+   * Sprint 10: attribution backfill. For each thread that has staff messages
+   * but NO staffId on any of them, assign staffIds round-robin (in message
+   * order) and set repliedBy to the last replier. Returns threads updated.
+   */
+  backfillAllAttribution(staffIds: string[]): Promise<number>;
   health(): Promise<{ store: 'neon' | 'memory'; reachable: boolean | null; threads: number }>;
 }
 
@@ -118,6 +134,8 @@ function ensureSchema(): Promise<void> {
       // Upgrade tables created before status/snooze existed.
       await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`;
       await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS snooze_until BIGINT NOT NULL DEFAULT 0`;
+      // Sprint 10: staff attribution (staff_users.id of the last replier).
+      await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS replied_by TEXT`;
     })()
       .then(() => undefined)
       .catch(err => {
@@ -140,6 +158,8 @@ function rowToThread(r: any): Thread {
     lastTs: Number(r.last_ts),
     status: (r.status as ThreadStatus) || 'active',
     snoozeUntil: Number(r.snooze_until || 0),
+    repliedBy: r.replied_by ?? null,
+    updatedAt: r.updated_at instanceof Date ? r.updated_at.getTime() : Date.now(),
   };
 }
 
@@ -154,6 +174,8 @@ function newThread(lineUid: string): Thread {
     lastTs: 0,
     status: 'active',
     snoozeUntil: 0,
+    repliedBy: null,
+    updatedAt: Date.now(),
   };
 }
 
@@ -172,6 +194,7 @@ function summarize(t: Thread): ThreadSummary {
     unread: t.unread,
     status: t.status,
     snoozeUntil: t.snoozeUntil,
+    repliedBy: t.repliedBy ?? null,
   };
 }
 
@@ -183,18 +206,22 @@ async function upsertThread(
   lineUid: string,
   mutate: (t: Thread) => void
 ): Promise<Thread | null> {
+  const applyMutate = (thread: Thread) => {
+    mutate(thread);
+    thread.updatedAt = Date.now();
+  };
   if (useNeon && sql) {
     await ensureSchema();
     const rows = await sql`SELECT * FROM inbox_threads WHERE line_uid = ${lineUid}`;
     const thread = rows.length ? rowToThread(rows[0]) : newThread(lineUid);
-    mutate(thread);
+    applyMutate(thread);
     await sql`
       INSERT INTO inbox_threads
-        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, status, snooze_until, updated_at)
+        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, status, snooze_until, replied_by, updated_at)
       VALUES
         (${thread.lineUid}, ${thread.customerCrmId}, ${thread.displayName}, ${thread.avatarUrl ?? null},
          ${thread.isLineFriend}, ${JSON.stringify(thread.messages)}::jsonb, ${thread.unread}, ${thread.lastTs},
-         ${thread.status}, ${thread.snoozeUntil}, now())
+         ${thread.status}, ${thread.snoozeUntil}, ${thread.repliedBy ?? null}, now())
       ON CONFLICT (line_uid) DO UPDATE SET
         customer_crm_id = EXCLUDED.customer_crm_id,
         display_name = EXCLUDED.display_name,
@@ -205,6 +232,7 @@ async function upsertThread(
         last_ts = EXCLUDED.last_ts,
         status = EXCLUDED.status,
         snooze_until = EXCLUDED.snooze_until,
+        replied_by = EXCLUDED.replied_by,
         updated_at = now()
     `;
     return thread;
@@ -212,7 +240,7 @@ async function upsertThread(
 
   // in-memory fallback
   const thread = memThreads.get(lineUid) || newThread(lineUid);
-  mutate(thread);
+  applyMutate(thread);
   memThreads.set(lineUid, thread);
   return thread;
 }
@@ -234,9 +262,14 @@ export const inboxStore: InboxStore = {
     });
   },
 
-  async appendStaffMessage(lineUid, text) {
+  async appendStaffMessage(lineUid, text, staffId) {
     return upsertThread(lineUid, t => {
-      t.messages.push({ id: newMessageId(), from: 'staff', text, ts: Date.now() });
+      const msg: InboxMessage = { id: newMessageId(), from: 'staff', text, ts: Date.now() };
+      if (staffId) {
+        msg.staffId = staffId;
+        t.repliedBy = staffId;
+      }
+      t.messages.push(msg);
       t.lastTs = Date.now();
     });
   },
@@ -285,6 +318,57 @@ export const inboxStore: InboxStore = {
       thread.unread = 0;
     }
     return thread;
+  },
+
+  async getAllThreads() {
+    if (useNeon && sql) {
+      await ensureSchema();
+      const rows = await sql`SELECT * FROM inbox_threads`;
+      return rows.map(rowToThread);
+    }
+    return Array.from(memThreads.values());
+  },
+
+  async backfillAllAttribution(staffIds) {
+    if (!staffIds.length) return 0;
+    let updated = 0;
+    const needsBackfill = (messages: InboxMessage[]) => {
+      const staffMsgs = messages.filter(m => m.from === 'staff');
+      return staffMsgs.length > 0 && !staffMsgs.some(m => m.staffId);
+    };
+    const assign = (messages: InboxMessage[]) => {
+      let i = 0;
+      for (const m of messages) {
+        if (m.from === 'staff' && !m.staffId) m.staffId = staffIds[i++ % staffIds.length];
+      }
+      const lastStaff = [...messages].reverse().find(m => m.from === 'staff');
+      return lastStaff?.staffId ?? null;
+    };
+    if (useNeon && sql) {
+      await ensureSchema();
+      const rows = await sql`SELECT line_uid, messages FROM inbox_threads`;
+      for (const r of rows) {
+        const messages = Array.isArray(r.messages) ? (r.messages as InboxMessage[]) : [];
+        if (!needsBackfill(messages)) continue;
+        const repliedBy = assign(messages);
+        await sql`
+          UPDATE inbox_threads
+          SET messages = ${JSON.stringify(messages)}::jsonb,
+              replied_by = ${repliedBy},
+              updated_at = now()
+          WHERE line_uid = ${r.line_uid}
+        `;
+        updated++;
+      }
+      return updated;
+    }
+    for (const t of memThreads.values()) {
+      if (!needsBackfill(t.messages)) continue;
+      t.repliedBy = assign(t.messages);
+      t.updatedAt = Date.now();
+      updated++;
+    }
+    return updated;
   },
 
   async health() {

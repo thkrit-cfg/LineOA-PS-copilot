@@ -2,6 +2,9 @@ import express, { Request, Response } from 'express';
 import { mockDb } from './mockDb';
 import { verifyLineSignature, buildStaffProfileFlex } from './lineService';
 import { inboxStore } from './inboxStore';
+import { adminStore } from './adminStore';
+import { registerAuthRoutes, currentUser } from './auth';
+import { registerAdminApi } from './adminApi';
 import { computeThreadPriority } from '../src/services/priorityEngine';
 import { classifyIntent } from '../src/services/intentEngine';
 import { generateReplyDraft } from '../src/services/replyDraftEngine';
@@ -32,6 +35,10 @@ export function createApp() {
   // Diagnostic: distinguish "not injected" (undefined) vs "empty" ("" ) vs "set"
   const envState = (v: string | undefined) =>
     v === undefined ? 'missing' : v === '' ? 'empty' : 'set';
+
+  // Sprint 10 — auth (admin + staff login/logout/me) and admin portal API
+  registerAuthRoutes(app);
+  registerAdminApi(app);
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -216,6 +223,7 @@ export function createApp() {
           isLineFriend: thread.isLineFriend,
           messages: thread.messages,
           unread: 0,
+          repliedBy: thread.repliedBy ?? null,
           customer,
         },
       });
@@ -225,11 +233,24 @@ export function createApp() {
   });
 
   app.post('/api/inbox/threads/:lineUid/reply', async (req: Request, res: Response) => {
-    const { text } = req.body || {};
+    const { text, staffId } = req.body || {};
     if (!text || typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ error: 'text is required' });
     }
     const lineUid = String(req.params.lineUid);
+    // Attribute the reply to a staff member: explicit body.staffId wins,
+    // otherwise fall back to the logged-in staff session (if any).
+    let attributedStaffId: string | undefined;
+    if (typeof staffId === 'string' && staffId.trim()) {
+      attributedStaffId = staffId.trim();
+    } else {
+      try {
+        const user = await currentUser(req);
+        if (user) attributedStaffId = user.id;
+      } catch {
+        // best-effort attribution — never block the reply on session lookup
+      }
+    }
     const channelToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
     let realLineSuccess = false;
@@ -257,7 +278,7 @@ export function createApp() {
 
     // Record the staff message in the thread (best-effort)
     try {
-      await inboxStore.appendStaffMessage(lineUid, text.trim());
+      await inboxStore.appendStaffMessage(lineUid, text.trim(), attributedStaffId);
     } catch (err: any) {
       console.error('Error recording staff reply in thread:', err?.message);
     }
@@ -268,6 +289,58 @@ export function createApp() {
       realLineSuccess,
       lineApiResponse,
     });
+  });
+
+  // Sprint 10 — staff raises a question ticket to HQ ("Ask HQ").
+  app.post('/api/inbox/threads/:lineUid/ticket', async (req: Request, res: Response) => {
+    const { subject, body, staffId } = (req.body || {}) as {
+      subject?: unknown;
+      body?: unknown;
+      staffId?: unknown;
+    };
+    if (typeof subject !== 'string' || !subject.trim()) {
+      return res.status(400).json({ error: 'subject is required' });
+    }
+    if (typeof body !== 'string' || !body.trim()) {
+      return res.status(400).json({ error: 'body is required' });
+    }
+    const lineUid = String(req.params.lineUid);
+    // Staff session preferred; explicit staffId as fallback (mock/demo mode).
+    let attributedStaffId: string | undefined;
+    try {
+      const user = await currentUser(req);
+      if (user) attributedStaffId = user.id;
+    } catch {
+      // best-effort
+    }
+    if (!attributedStaffId && typeof staffId === 'string' && staffId.trim()) {
+      attributedStaffId = staffId.trim();
+    }
+    if (!attributedStaffId) {
+      return res.status(400).json({ error: 'staffId is required (or log in as staff)' });
+    }
+    try {
+      const ticket = await adminStore.createTicket({
+        threadLineUid: lineUid,
+        staffId: attributedStaffId,
+        subject: subject.trim(),
+        body: body.trim(),
+      });
+      res.status(201).json({ success: true, data: ticket });
+    } catch (err: any) {
+      res.status(500).json({ error: 'failed to create ticket', message: err?.message });
+    }
+  });
+
+  // Sprint 10 — tickets for a thread (staff sees their own thread's ticket state).
+  app.get('/api/inbox/threads/:lineUid/tickets', async (req: Request, res: Response) => {
+    const lineUid = String(req.params.lineUid);
+    try {
+      const data = await adminStore.listTicketsForThread(lineUid);
+      res.json({ data, total: data.length });
+    } catch (err: any) {
+      res.status(500).json({ error: 'failed to list tickets', message: err?.message });
+    }
   });
 
   // Mark a thread done / snoozed / re-activated (inbox queue management).
