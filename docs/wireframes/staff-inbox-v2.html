@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Staff Inbox — Wireframe Redesign v2 (CRM in chat)</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --paper: #ffffff;
+    --ink: #2b2b2b;
+    --ink-soft: #6b6b6b;
+    --ink-faint: #9a9a9a;
+    --line: #c9c9c4;
+    --line-soft: #e2e2dd;
+    --box: #ececea;
+    --box-soft: #f6f6f4;
+    --anno: #d64541;
+    --anno-bg: #fdeeec;
+    --ok: #3e8e5a;
+    --ok-bg: #eef7f1;
+    --keep: #8a6d1a;
+    --keep-bg: #fbf5e4;
+    --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); padding: 40px 24px 80px; }
+  .page { max-width: 1480px; margin: 0 auto; }
+
+  /* ---------- doc header ---------- */
+  .doc-head { border-bottom: 2px solid var(--ink); padding-bottom: 18px; margin-bottom: 34px; }
+  .doc-head h1 { font-size: 26px; letter-spacing: -0.02em; }
+  .doc-head .sub { margin-top: 6px; color: var(--ink-soft); font-size: 14px; max-width: 860px; line-height: 1.5; }
+  .doc-meta { display: flex; gap: 18px; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-soft); flex-wrap: wrap; }
+  .doc-meta span b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- sections ---------- */
+  section { margin-bottom: 52px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .sec-num { font-family: var(--mono); font-size: 12px; border: 1.5px solid var(--ink); padding: 1px 7px; }
+  .sec-head h2 { font-size: 19px; letter-spacing: -0.01em; }
+  .sec-desc { color: var(--ink-soft); font-size: 13.5px; margin-bottom: 20px; max-width: 900px; line-height: 1.55; }
+
+  /* ---------- needs table ---------- */
+  table.needs { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); font-size: 13px; }
+  table.needs th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); padding: 10px 12px; border-bottom: 1.5px solid var(--ink); background: var(--box-soft); }
+  table.needs td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; line-height: 1.45; }
+  table.needs tr:last-child td { border-bottom: none; }
+  table.needs td.task { font-weight: 600; width: 21%; }
+  table.needs td.gap { color: var(--anno); font-weight: 600; }
+  table.needs td.ok { color: var(--ok); font-weight: 600; }
+  table.needs td.keep { color: var(--keep); font-weight: 600; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
+  .tag.gap { background: var(--anno-bg); color: var(--anno); border: 1px solid #eac2bf; }
+  .tag.ok { background: var(--ok-bg); color: var(--ok); border: 1px solid #bfe0cc; }
+  .tag.keep { background: var(--keep-bg); color: var(--keep); border: 1px solid #e6d9ae; }
+
+  /* ---------- frame rows ---------- */
+  .frames { display: flex; gap: 28px; flex-wrap: wrap; }
+  .frame-unit { display: flex; gap: 18px; align-items: flex-start; }
+  .frame-col { display: flex; flex-direction: column; gap: 10px; }
+  .frame-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+  .frame-label .pill { border: 1.5px solid var(--ink); padding: 1px 8px; color: var(--ink); }
+  .frame-label .pill.asis { border-color: var(--anno); color: var(--anno); }
+  .frame-label .pill.tobe { border-color: var(--ok); color: var(--ok); }
+
+  /* ---------- phone ---------- */
+  .phone { width: 375px; height: 730px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: 26px; position: relative; overflow: hidden; display: flex; flex-direction: column; box-shadow: 4px 5px 0 rgba(0,0,0,0.06); flex-shrink: 0; }
+  .phone .statusbar { height: 26px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); flex-shrink: 0; }
+  .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  /* wireframe primitives */
+  .wf-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: var(--box-soft); }
+  .wf-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--box); border: 1px solid var(--line); position: relative; flex-shrink: 0; }
+  .wf-avatar::after { content: ""; position: absolute; inset: 8px 10px; border-radius: 50% 50% 40% 40%; background: var(--line); }
+  .wf-avatar .shoulders { position: absolute; bottom: 4px; left: 8px; right: 8px; height: 10px; border-radius: 8px 8px 0 0; background: var(--line); }
+  .wf-name { font-size: 13px; font-weight: 700; }
+  .wf-sub { font-size: 10px; color: var(--ink-faint); font-family: var(--mono); }
+  .wf-btn { border: 1.5px solid var(--ink); border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 700; background: var(--paper); }
+  .wf-btn.primary { background: var(--ink); color: #fff; }
+  .wf-btn.ghost { border-color: var(--line); color: var(--ink-soft); }
+  .wf-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 600; background: var(--paper); white-space: nowrap; }
+  .wf-chip.fill { background: var(--box); }
+  .wf-strip { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line-soft); font-size: 10.5px; color: var(--ink-soft); flex-shrink: 0; overflow: hidden; }
+  .wf-strip .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
+  .wf-strip b { color: var(--ink); }
+  .wf-section-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); font-weight: 700; padding: 8px 12px 4px; flex-shrink: 0; }
+  .wf-recs { display: flex; gap: 8px; padding: 2px 12px 8px; overflow: hidden; flex-shrink: 0; }
+  .wf-rec { width: 108px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--paper); flex-shrink: 0; }
+  .wf-rec .img { height: 52px; background: repeating-linear-gradient(45deg, var(--box) 0 6px, var(--box-soft) 6px 12px); border-bottom: 1px solid var(--line-soft); }
+  .wf-rec .body { padding: 6px 7px; }
+  .wf-rec .l1 { height: 7px; background: var(--box); border-radius: 2px; margin-bottom: 4px; }
+  .wf-rec .l2 { height: 6px; background: var(--line-soft); border-radius: 2px; width: 70%; }
+  .wf-msgs { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; background: var(--box-soft); }
+  .wf-bubble { max-width: 75%; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 12px; line-height: 1.45; background: var(--paper); }
+  .wf-bubble.mine { align-self: flex-end; background: var(--box); }
+  .wf-bubble .meta { font-size: 9px; color: var(--ink-faint); margin-top: 4px; font-family: var(--mono); }
+  .wf-bubble .intent { display: inline-block; margin-top: 6px; font-size: 9px; font-weight: 700; border: 1px dashed var(--line); border-radius: 4px; padding: 1px 6px; color: var(--ink-soft); }
+  .wf-composer { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; gap: 8px; align-items: center; flex-shrink: 0; background: var(--paper); }
+  .wf-composer .field { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; font-size: 11px; color: var(--ink-faint); }
+  .wf-round { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--ink); display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--paper); flex-shrink: 0; }
+  .wf-round.fill { background: var(--ink); color: #fff; }
+
+  /* bottom sheet */
+  .dim { position: absolute; inset: 0; background: rgba(244,244,242,0.72); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 1.5px solid var(--ink); border-radius: 20px 20px 0 0; display: flex; flex-direction: column; max-height: 78%; }
+  .sheet .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 4px; flex-shrink: 0; }
+  .sheet-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .sheet-head .t { font-size: 13px; font-weight: 800; }
+  .sheet-head .s { font-size: 10px; color: var(--ink-faint); }
+  .sheet-head .x { margin-left: auto; width: 26px; height: 26px; border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink-soft); }
+  .sheet-search { margin: 10px 14px 6px; border: 1.5px dashed var(--line); border-radius: 10px; padding: 9px 12px; font-size: 11px; color: var(--ink-faint); flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
+  .sheet-search .caret { width: 1.5px; height: 14px; background: var(--ink); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .sheet-body { flex: 1; overflow: hidden; padding: 8px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .cust-row { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--paper); }
+  .cust-row .info { flex: 1; min-width: 0; }
+  .cust-row .n { font-size: 12px; font-weight: 700; }
+  .cust-row .m { font-size: 10px; color: var(--ink-faint); font-family: var(--mono); margin-top: 2px; }
+  .cust-row .r { text-align: right; font-size: 11px; font-weight: 800; }
+  .cust-row .r small { display: block; font-size: 8.5px; color: var(--ink-faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .sheet-action { padding: 10px 14px 14px; border-top: 1px solid var(--line); flex-shrink: 0; }
+  .sheet-action .wf-btn { width: 100%; text-align: center; padding: 10px; font-size: 12px; }
+
+  /* profile panel blocks (TO-BE B) */
+  .pf-block { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); flex-shrink: 0; }
+  .pf-block .h { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); font-weight: 700; margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+  .pf-card { border: 1.5px solid var(--ink); border-radius: 12px; padding: 10px 12px; background: var(--box-soft); flex-shrink: 0; }
+  .pf-card .brand { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; }
+  .pf-card .num { font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.12em; margin-top: 5px; display: flex; align-items: center; justify-content: space-between; }
+  .pf-card .num .cp { font-family: var(--sans); font-size: 9px; font-weight: 700; border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px; letter-spacing: 0; }
+  .pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+  .pf-metric { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--paper); }
+  .pf-metric .l { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); font-weight: 700; }
+  .pf-metric .v { font-size: 15px; font-weight: 800; margin-top: 2px; }
+  .pf-metric .s { font-size: 9px; color: var(--ink-faint); }
+  .pf-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pf-tx { display: flex; justify-content: space-between; font-size: 10.5px; padding: 5px 0; border-bottom: 1px dashed var(--line-soft); }
+  .pf-tx:last-child { border-bottom: none; }
+  .pf-tx .id { font-family: var(--mono); color: var(--ink-soft); }
+  .pf-tx .amt { font-weight: 800; }
+  .pf-note { background: var(--keep-bg); border-color: #e0d3a8; }
+  .pf-note .h { color: var(--keep); }
+  .pf-note p { font-size: 11px; line-height: 1.5; color: var(--ink-soft); }
+  .pf-note .edit { margin-left: auto; font-size: 9px; font-weight: 700; border: 1px solid var(--keep); color: var(--keep); border-radius: 5px; padding: 1px 7px; background: var(--paper); }
+  .pf-status { display: flex; gap: 8px; flex-shrink: 0; }
+  .pf-status .cell { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font-size: 10px; background: var(--paper); }
+  .pf-status .cell b { display: block; font-size: 10.5px; margin-top: 2px; }
+  .pf-actions { display: flex; gap: 8px; }
+  .pf-actions .wf-btn { flex: 1; text-align: center; padding: 10px; font-size: 11.5px; }
+
+  /* ---------- desktop frames (LINE OA Manager style) ---------- */
+  .desk { width: 940px; height: 520px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: 14px; position: relative; overflow: hidden; display: flex; flex-direction: column; box-shadow: 4px 5px 0 rgba(0,0,0,0.06); flex-shrink: 0; }
+  .desk .topbar { height: 44px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 0 14px; flex-shrink: 0; background: var(--box-soft); position: relative; }
+  .sorttabs { display: flex; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 2px; margin-left: 12px; }
+  .sorttabs .st { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; color: var(--ink-faint); }
+  .sorttabs .st.on { background: var(--ink); color: #fff; }
+  .desk .dbody { flex: 1; display: flex; min-height: 0; }
+  .dlist { width: 270px; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; flex-shrink: 0; background: var(--paper); }
+  .dlist .lhead { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); flex-shrink: 0; }
+  .dlist .lsearch { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 10.5px; color: var(--ink-faint); }
+  .dlist .lrow { display: flex; gap: 9px; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); align-items: center; flex-shrink: 0; }
+  .dlist .lrow.active { background: var(--box); }
+  .dlist .lrow.risk { border-left: 3px solid var(--anno); }
+  .dlist .lrow .info { flex: 1; min-width: 0; }
+  .dlist .lrow .n { font-size: 11.5px; font-weight: 700; display: flex; justify-content: space-between; gap: 6px; }
+  .dlist .lrow .n .t { font-size: 9px; color: var(--ink-faint); font-family: var(--mono); font-weight: 500; }
+  .dlist .lrow .p { font-size: 10px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .dlist .lrow .chips { display: flex; gap: 4px; margin-top: 3px; }
+  .dlist .lrow .chips .wf-chip { font-size: 8px; padding: 1px 6px; }
+  .dlist .lrow .unread { min-width: 18px; height: 18px; border-radius: 9px; background: #06c755; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .dchat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .dchat .chead { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: var(--paper); position: relative; }
+  .cstrip { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; row-gap: 4px; padding: 7px 12px; border-bottom: 1px solid var(--line-soft); font-size: 10.5px; color: var(--ink-soft); flex-shrink: 0; overflow: hidden; background: var(--box-soft); position: relative; }
+  .cstrip b { color: var(--ink); }
+  .cstrip .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
+  .crecs { flex-shrink: 0; border-bottom: 1px solid var(--line-soft); }
+  .crecs .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); font-weight: 700; padding: 6px 12px 4px; }
+  .crecs .row { display: flex; gap: 8px; padding: 0 12px 8px; }
+  .dmsgs { flex: 1; background: #eef0f2; padding: 12px; display: flex; flex-direction: column; gap: 9px; min-height: 0; overflow: hidden; }
+  .dbub { max-width: 64%; border-radius: 10px; padding: 8px 11px; font-size: 12px; line-height: 1.45; }
+  .dbub.cust { background: #fff; border: 1px solid var(--line-soft); align-self: flex-start; border-top-left-radius: 3px; }
+  .dbub.staff { background: #06c755; color: #fff; align-self: flex-end; border-top-right-radius: 3px; }
+  .dbub .meta { font-size: 9px; margin-top: 3px; font-family: var(--mono); opacity: 0.65; }
+  .dbub .intent { display: inline-block; margin-top: 5px; font-size: 9px; font-weight: 700; border: 1px dashed var(--line); border-radius: 4px; padding: 1px 6px; color: var(--ink-soft); }
+  .dcomp { border-top: 1px solid var(--line); padding: 9px 12px; display: flex; gap: 8px; align-items: center; flex-shrink: 0; background: var(--paper); }
+  .dcomp .field { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 11.5px; color: var(--ink-faint); }
+  .dcomp .send { width: 34px; height: 34px; border-radius: 50%; background: #06c755; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .dinsp { width: 262px; border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--box-soft); flex-shrink: 0; }
+  .dinsp.wide { width: 302px; }
+  .dinsp .ihead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: var(--paper); position: relative; }
+  .dinsp .ibody { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .dinsp .iact { padding: 9px 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; flex-shrink: 0; background: var(--paper); position: relative; }
+  .dinsp .iact .wf-btn { flex: 1; text-align: center; padding: 8px; font-size: 10.5px; }
+  .dinsp .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--ink-faint); font-size: 11px; text-align: center; padding: 16px; }
+  .dinsp .empty .big { font-size: 26px; }
+  /* link modal (TO-BE C) */
+  .modal-dim { position: absolute; inset: 0; background: rgba(244,244,242,0.72); display: flex; align-items: center; justify-content: center; z-index: 4; }
+  .modal { width: 400px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: 14px; display: flex; flex-direction: column; max-height: 86%; box-shadow: 5px 6px 0 rgba(0,0,0,0.08); position: relative; }
+
+  /* annotations */
+  .anno { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--anno); color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; z-index: 5; box-shadow: 0 0 0 3px var(--anno-bg); }
+  .anno.good { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+  .anno.keep { background: var(--keep); box-shadow: 0 0 0 3px var(--keep-bg); }
+
+  /* legend */
+  .legend { width: 250px; display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
+  .legend .item { display: flex; gap: 9px; font-size: 12px; line-height: 1.45; color: var(--ink-soft); }
+  .legend .item .n { width: 20px; height: 20px; border-radius: 50%; background: var(--anno); color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .legend .item.good .n { background: var(--ok); }
+  .legend .item.keep .n { background: var(--keep); }
+  .legend .item b { color: var(--ink); }
+
+  /* flow diagram — 2-row branch grid */
+  .flow { display: grid; grid-template-columns: auto 64px auto 64px auto 64px auto; grid-template-rows: auto 34px auto; align-items: center; justify-content: start; column-gap: 0; row-gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 26px 26px; max-width: 1080px; }
+  .fbox { border: 1.5px solid var(--ink); border-radius: 10px; padding: 9px 14px; font-size: 12px; font-weight: 700; background: var(--paper); text-align: center; white-space: nowrap; }
+  .fbox small { display: block; font-weight: 500; color: var(--ink-soft); font-size: 10px; margin-top: 2px; }
+  .fbox.diamond { border-radius: 4px; background: var(--box-soft); }
+  .fbox.search { border-style: dashed; }
+  .fbox.done { background: var(--ok-bg); border-color: var(--ok); }
+  .farr { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 11px; }
+  .farr .line { width: 100%; border-top: 1.5px solid var(--ink); position: relative; }
+  .farr .line::after { content: ""; position: absolute; right: -1px; top: -4.5px; border-left: 7px solid var(--ink); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+  .farr .lbl { font-size: 10px; font-family: var(--mono); margin-bottom: 3px; color: var(--ink-soft); width: max-content; background: var(--paper); padding: 0 3px; position: relative; z-index: 2; }
+  .farr.v { flex-direction: row; align-items: center; height: 100%; }
+  .farr.v .line { width: 1.5px; height: 100%; border-top: none; border-left: 1.5px solid var(--ink); }
+  .farr.v .line::after { right: auto; top: auto; left: -4.5px; bottom: -1px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 7px solid var(--ink); border-bottom: none; }
+  .farr.v .lbl { position: absolute; margin: 0; left: 10px; top: 50%; transform: translateY(-50%); }
+  .farr.v { position: relative; }
+  .fcell { position: relative; }
+  .fcell .branch-lbl { position: absolute; font-size: 10px; font-family: var(--mono); color: var(--ink-soft); }
+  /* row 1 cells */
+  .r1c1 { grid-column: 1; grid-row: 1; }
+  .r1c2 { grid-column: 2; grid-row: 1; }
+  .r1c3 { grid-column: 3; grid-row: 1; }
+  .r1c4 { grid-column: 4; grid-row: 1; }
+  .r1c5 { grid-column: 5; grid-row: 1; }
+  .r1c6 { grid-column: 6; grid-row: 1; }
+  .r1c7 { grid-column: 7; grid-row: 1; }
+  /* row 2: vertical drop from c3 (CRM linked?) */
+  .r2c3 { grid-column: 3; grid-row: 2; }
+  /* row 3: no-branch row, starts under c3 */
+  .r3c3 { grid-column: 3; grid-row: 3; }
+  .r3c4 { grid-column: 4; grid-row: 3; }
+  .r3c5 { grid-column: 5; grid-row: 3; }
+  .r3c6 { grid-column: 6; grid-row: 3; }
+  .r3c7 { grid-column: 7; grid-row: 3; }
+  .yes-lbl { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 10px; font-family: var(--mono); color: var(--ok); font-weight: 700; }
+  .no-lbl { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; font-family: var(--mono); color: var(--anno); font-weight: 700; }
+
+  /* notes box */
+  .note-box { background: var(--anno-bg); border: 1px solid #eac2bf; border-left: 4px solid var(--anno); border-radius: 8px; padding: 12px 16px; font-size: 13px; line-height: 1.55; max-width: 980px; margin-top: 18px; }
+  .note-box b { color: var(--anno); }
+  .note-box.ok { background: var(--ok-bg); border-color: #bfe0cc; border-left-color: var(--ok); }
+  .note-box.ok b { color: var(--ok); }
+
+  footer { margin-top: 60px; border-top: 1.5px solid var(--ink); padding-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--ink-soft); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  @media (prefers-reduced-motion: reduce) { .sheet-search .caret { animation: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ============ DOC HEAD ============ -->
+  <div class="doc-head">
+    <h1>Staff Inbox — Wireframe Redesign v2</h1>
+    <p class="sub">
+      The current “CRM” button opens a <b>global search</b> of every customer — so a staff member chatting with
+      customer A can wander into customer B’s record. Staff never need to browse <i>other</i> customers mid-conversation.
+      This redesign moves CRM context <b>inline into the chat</b> (always about the person on the line) and keeps
+      search only where it belongs: <b>linking an unknown customer</b>. The chat layout follows
+      <b>LINE OA Manager</b> — conversation list on the left, conversation on the right, CRM inspector on the
+      right — so staff don’t relearn the layout.
+    </p>
+    <div class="doc-meta">
+      <span><b>repo</b> thkrit-cfg/LineOA-PS-copilot</span>
+      <span><b>route</b> /staff</span>
+      <span><b>date</b> 2026-09-19</span>
+      <span><b>scope</b> StaffInbox.tsx + CustomerCrmDrawer.tsx</span>
+      <span><b>status</b> wireframe — for review</span>
+    </div>
+  </div>
+
+  <!-- ============ 1. NEEDS ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>What staff actually need while chatting</h2></div>
+    <p class="sec-desc">
+      A staff member’s job in a thread is one thing: <b>reply fast, personally, correctly</b>. Every CRM feature must
+      serve that moment. Anything that pulls attention to a different customer is a defect, not a feature.
+    </p>
+    <table class="needs">
+      <thead>
+        <tr><th style="width:21%">Task in the conversation</th><th style="width:30%">What they need</th><th style="width:24%">Today (/staff)</th><th>v2 wireframe</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="task">Know who is messaging</td>
+          <td>Name, photo, loyalty tier at a glance</td>
+          <td class="keep">Name + photo in header; tier hidden in drawer <span class="tag keep">partly</span></td>
+          <td>Tier + segment chip in header</td>
+        </tr>
+        <tr>
+          <td class="task">Understand the request</td>
+          <td>Intent of last message + suggested reply</td>
+          <td class="ok">Intent chip + AI draft <span class="tag ok">keep</span></td>
+          <td>Unchanged</td>
+        </tr>
+        <tr>
+          <td class="task">Personalize the reply</td>
+          <td>Top categories, dietary prefs, recent purchases, staff notes</td>
+          <td class="gap">3 taps deep inside a global search drawer <span class="tag gap">gap</span></td>
+          <td>1 tap → inline profile panel (this customer only)</td>
+        </tr>
+        <tr>
+          <td class="task">Gauge value &amp; urgency</td>
+          <td>LTV, segment, at-risk signal</td>
+          <td class="keep">Dense 2-row strip + value strip <span class="tag keep">partly</span></td>
+          <td>Single compact strip, tap to expand</td>
+        </tr>
+        <tr>
+          <td class="task">Offer the right thing</td>
+          <td>Product recs + the promo type they prefer</td>
+          <td class="keep">Recs ✓; preferred promo type buried <span class="tag keep">partly</span></td>
+          <td>Recs kept + “prefers: …” hint beside them</td>
+        </tr>
+        <tr>
+          <td class="task">Verify loyalty</td>
+          <td>The 1 card number (tap to copy)</td>
+          <td class="gap">Only inside drawer <span class="tag gap">gap</span></td>
+          <td>Card on the strip, tap to copy</td>
+        </tr>
+        <tr>
+          <td class="task">Link an unknown customer</td>
+          <td>Find CRM record by phone / name / card</td>
+          <td class="ok">Link mode works <span class="tag ok">keep</span></td>
+          <td>Kept — and becomes the <b>only</b> place search exists</td>
+        </tr>
+        <tr>
+          <td class="task">Log context for next time</td>
+          <td>Add / edit a staff note</td>
+          <td class="gap">Notes are read-only <span class="tag gap">gap</span></td>
+          <td>Editable note in profile panel</td>
+        </tr>
+        <tr>
+          <td class="task">Call the customer</td>
+          <td>Phone number, one tap</td>
+          <td class="gap">Copy-only inside drawer <span class="tag gap">gap</span></td>
+          <td>“Call” action in profile panel</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note-box">
+      <b>Core finding:</b> the drawer’s global search is right for <i>linking</i> and wrong for <i>viewing</i>.
+      In view mode it invites staff to open another customer’s record (wrong context + PDPA exposure), and its
+      “Set as Active Customer” button does nothing. The fix is structural: <b>profile = inline, search = link-only</b>.
+    </div>
+  </section>
+
+  <!-- ============ 2. AS-IS ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>AS-IS — where it breaks</h2></div>
+    <p class="sec-desc">Today: the CRM button in the chat header opens a bottom sheet that searches <b>all</b> customers in the data lake.</p>
+    <div class="frames">
+
+      <!-- AS-IS A: chat -->
+      <div class="frame-unit">
+        <div class="frame-col">
+          <div class="frame-label"><span class="pill asis">AS-IS</span> A · Chat thread</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>LINE OA Staff</span><span>▮▮▮</span></div>
+            <div class="screen">
+              <div class="wf-bar">
+                <span style="font-size:15px;color:var(--ink-soft)">←</span>
+                <div class="wf-avatar"><div class="shoulders"></div></div>
+                <div style="flex:1;min-width:0">
+                  <div class="wf-name">Natta_BKK ✨</div>
+                  <div class="wf-sub">Uc999505…a824c</div>
+                </div>
+                <span class="wf-btn">🔍 CRM</span>
+                <span class="anno" style="top:6px;right:52px">1</span>
+              </div>
+              <div class="wf-strip">
+                <span class="wf-chip fill">Champions</span>
+                <span class="wf-chip">Platinum VIP</span>
+                <span class="wf-chip" style="font-family:var(--mono)">6271-8890-4412</span>
+                <span class="anno" style="top:4px;right:8px">2</span>
+              </div>
+              <div class="wf-strip">
+                <span>LTV <b>฿48,950</b></span><span class="dot"></span>
+                <span>AOV <b>฿1,288</b></span><span class="dot"></span>
+                <span>Orders <b>38</b></span><span class="dot"></span>
+                <span>Last <b>3d</b></span><span class="dot"></span>
+                <span>Fresh Produce, Butcher…</span>
+              </div>
+              <div class="wf-strip">
+                <span>LTV ฿48,950</span><span class="dot"></span>
+                <span>Last order ฿1,425</span><span class="dot"></span>
+                <span>30d ฿3,105</span>
+                <span style="margin-left:auto" class="wf-chip fill">Conv ≈ ฿2,448</span>
+              </div>
+              <div class="wf-section-label">✦ Copilot picks — tap to insert</div>
+              <div class="wf-recs">
+                <div class="wf-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div></div></div>
+                <div class="wf-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div></div></div>
+                <div class="wf-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div></div></div>
+              </div>
+              <div class="wf-msgs">
+                <div class="wf-bubble">Do you have the organic salad mix today? 🥬<div class="meta">09:38</div><span class="intent">intent: product availability · 92%</span></div>
+                <div class="wf-bubble mine">Yes! Royal Project salad is in — want me to set 2 packs aside for pickup?<div class="meta">09:40 ✓✓</div></div>
+              </div>
+              <div class="wf-composer">
+                <div class="wf-round">✎</div>
+                <div class="field">Type a reply…</div>
+                <div class="wf-round fill">➤</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="item"><span class="n">1</span><span><b>“CRM” opens a global search</b> of all 7 customers — not a profile of the person on the line.</span></div>
+          <div class="item"><span class="n">2</span><span><b>Stats are visible, but the useful stuff</b> (dietary, notes, recent purchases, phone) is 3 taps away — inside the search drawer.</span></div>
+          <div class="item keep"><span class="n">3</span><span style="visibility:hidden">.</span></div>
+        </div>
+      </div>
+
+      <!-- AS-IS B: global drawer -->
+      <div class="frame-unit">
+        <div class="frame-col">
+          <div class="frame-label"><span class="pill asis">AS-IS</span> B · What the CRM button opens</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>LINE OA Staff</span><span>▮▮▮</span></div>
+            <div class="screen" style="filter:grayscale(1) opacity(0.55)">
+              <div class="wf-bar">
+                <span style="font-size:15px;color:var(--ink-soft)">←</span>
+                <div class="wf-avatar"><div class="shoulders"></div></div>
+                <div style="flex:1;min-width:0"><div class="wf-name">Natta_BKK ✨</div><div class="wf-sub">Uc999505…a824c</div></div>
+                <span class="wf-btn">🔍 CRM</span>
+              </div>
+              <div class="wf-msgs" style="flex:1">
+                <div class="wf-bubble">Do you have the organic salad mix today? 🥬<div class="meta">09:38</div></div>
+              </div>
+              <div class="wf-composer"><div class="wf-round">✎</div><div class="field">Type a reply…</div><div class="wf-round fill">➤</div></div>
+            </div>
+            <div class="dim"></div>
+            <div class="sheet" style="max-height:62%">
+              <div class="grab"></div>
+              <div class="sheet-head">
+                <span style="font-size:14px">🔍</span>
+                <div><div class="t">Customer CRM Lookup</div><div class="s">7 of 7 customers</div></div>
+                <span class="x">✕</span>
+              </div>
+              <div class="sheet-search"><span>Search name, phone, The 1 card, or LINE ID…</span></div>
+              <div class="sheet-body">
+                <div class="cust-row">
+                  <div class="wf-avatar" style="width:38px;height:38px"><div class="shoulders"></div></div>
+                  <div class="info"><div class="n">Nattaporn Watcharapong</div><div class="m">6271-8890-4412 · 081-445-9821</div><div style="margin-top:4px"><span class="wf-chip fill">Champions</span></div></div>
+                  <div class="r">฿1,288<small>Avg spend</small></div>
+                </div>
+                <div class="cust-row">
+                  <div class="wf-avatar" style="width:38px;height:38px"><div class="shoulders"></div></div>
+                  <div class="info"><div class="n">Worawut Srisawat</div><div class="m">6271-4451-9018 · 089-112-3490</div><div style="margin-top:4px"><span class="wf-chip">Loyal Shoppers</span></div></div>
+                  <div class="r">฿1,418<small>Avg spend</small></div>
+                </div>
+                <div class="cust-row">
+                  <div class="wf-avatar" style="width:38px;height:38px"><div class="shoulders"></div></div>
+                  <div class="info"><div class="n">Siriporn Kittikun</div><div class="m">6271-2299-1055 · 086-773-4512</div><div style="margin-top:4px"><span class="wf-chip">At Risk</span></div></div>
+                  <div class="r">฿1,171<small>Avg spend</small></div>
+                </div>
+                <div class="cust-row" style="opacity:0.55">
+                  <div class="wf-avatar" style="width:38px;height:38px"><div class="shoulders"></div></div>
+                  <div class="info"><div class="n">Chaiwat Charoenrat</div><div class="m">6271-9988-3301 · 082-901-2345</div><div style="margin-top:4px"><span class="wf-chip fill">Champions</span></div></div>
+                  <div class="r">฿1,386<small>Avg spend</small></div>
+                </div>
+                <span class="anno" style="position:absolute;top:96px;right:14px">4</span>
+              </div>
+              <div class="sheet-action">
+                <span class="wf-btn primary" style="display:block;width:100%;text-align:center">✦ Set as Active Customer</span>
+                <span class="anno" style="position:absolute;bottom:14px;right:16px">5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="item"><span class="n">4</span><span><b>Staff is chatting with Nattaporn</b> but can open Worawut’s or Chaiwat’s record — wrong context, and a PDPA exposure (viewing a customer’s data with no reason to).</span></div>
+          <div class="item"><span class="n">5</span><span><b>“Set as Active Customer” is a dead button</b> in view mode — the handler is never wired, so tapping it just closes the sheet.</span></div>
+          <div class="item"><span class="n" style="background:var(--ink-faint)">i</span><span>Search itself is fine — but it belongs in <b>link mode only</b> (screen C, next section).</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. TO-BE ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>TO-BE — CRM context lives in the chat</h2></div>
+    <p class="sec-desc">
+      Rule: <b>the profile panel can only ever show the thread’s customer</b> (no search, no list).
+      Search exists in exactly one place: linking an unlinked LINE account.
+    </p>
+    <div class="frames">
+
+      <!-- TO-BE A: OA Manager layout -->
+      <div class="frame-unit">
+        <div class="frame-col">
+          <div class="frame-label"><span class="pill tobe">TO-BE</span> A · OA Manager layout — list · chat · CRM inspector</div>
+          <div class="desk">
+            <div class="topbar">
+              <span style="font-size:13px;font-weight:800">LINE OA Staff</span>
+              <div class="sorttabs">
+                <span class="st on">Priority</span><span class="st">Recent</span><span class="st">Unread</span>
+              </div>
+              <span style="margin-left:auto;font-size:10px;color:var(--ink-faint)" class="mono">3 threads · 2 unread</span>
+              <span class="anno good" style="top:10px;right:170px">1</span>
+            </div>
+            <div class="dbody">
+              <!-- left: thread list -->
+              <div class="dlist">
+                <div class="lhead"><div class="lsearch">🔍 Search customers…</div></div>
+                <div class="lrow active">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">Natta_BKK ✨ <span class="t">09:38</span></div>
+                    <div class="p">Do you have the organic salad mix today? 🥬</div>
+                    <div class="chips"><span class="wf-chip fill">Champions</span><span class="wf-chip">👑 Platinum</span></div>
+                  </div>
+                  <span class="unread">2</span>
+                </div>
+                <div class="lrow risk">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">Siriporn K. <span class="t">08:51</span></div>
+                    <div class="p">I haven’t ordered in 3 months…</div>
+                    <div class="chips"><span class="wf-chip" style="border-color:var(--anno);color:var(--anno)">⚠ At Risk</span></div>
+                  </div>
+                </div>
+                <div class="lrow">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">Worawut S. <span class="t">Yesterday</span></div>
+                    <div class="p">Thanks, see you tomorrow!</div>
+                    <div class="chips"><span class="wf-chip">Loyal Shoppers</span></div>
+                  </div>
+                </div>
+              </div>
+              <!-- center: conversation -->
+              <div class="dchat">
+                <div class="chead">
+                  <div class="wf-avatar"><div class="shoulders"></div></div>
+                  <div style="flex:1;min-width:0">
+                    <div class="wf-name">Natta_BKK ✨</div>
+                    <div class="wf-sub">Nattaporn · T1-892401</div>
+                  </div>
+                  <span class="wf-chip fill" style="font-size:10.5px;padding:4px 10px">👑 Platinum VIP</span>
+                  <span class="anno good" style="top:8px;right:120px">2</span>
+                </div>
+                <div class="cstrip">
+                  <span class="wf-chip fill">Champions</span>
+                  <span class="wf-chip" style="font-family:var(--mono)">6271-8890-4412 ⧉</span>
+                  <span class="dot"></span>
+                  <span>LTV <b>฿48,950</b></span><span class="dot"></span>
+                  <span>Last <b>3d</b></span>
+                  <span class="dot"></span>
+                  <span>🥗 Organic · Clean Food</span>
+                  <span style="margin-left:auto;color:var(--ink-faint)">⌄ profile</span>
+                  <span class="anno good" style="top:6px;right:84px">3</span>
+                </div>
+                <div class="crecs">
+                  <div class="lbl">✦ Copilot picks — tap to insert</div>
+                  <div class="row">
+                    <div class="wf-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div></div></div>
+                    <div class="wf-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div></div></div>
+                    <div class="wf-rec"><div class="img"></div><div class="body"><div class="l1"></div><div class="l2"></div></div></div>
+                  </div>
+                </div>
+                <div class="dmsgs">
+                  <div class="dbub cust">Do you have the organic salad mix today? 🥬<div class="meta">09:38</div><span class="intent">intent: product availability · 92%</span></div>
+                  <div class="dbub staff">Yes! Royal Project salad is in — want me to set 2 packs aside for pickup?<div class="meta">09:40 ✓✓</div></div>
+                </div>
+                <div class="dcomp">
+                  <div class="field">Type a reply…</div>
+                  <div class="send">➤</div>
+                </div>
+              </div>
+              <!-- right: CRM inspector (collapsed state) -->
+              <div class="dinsp">
+                <div class="ihead">
+                  <span style="font-size:12px;font-weight:800">CRM</span>
+                  <span class="wf-sub" style="margin-left:auto">Nattaporn W.</span>
+                  <span class="anno good" style="top:8px;right:10px">4</span>
+                </div>
+                <div class="empty">
+                  <div class="big">👤</div>
+                  <div><b>Profile panel</b><br>Tap the strip in the chat to open the full profile — loyalty card, purchases, notes, call.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="item good"><span class="n">1</span><span><b>Same shape as LINE OA Manager:</b> thread list left, conversation center, CRM inspector right. Sort tabs (Priority / Recent / Unread) sit in the top bar — staff already know this layout.</div>
+          <div class="item good"><span class="n">2</span><span><b>Tier chip in the conversation header</b> — staff sees “who matters” before reading a word.</div>
+          <div class="item good"><span class="n">3</span><span><b>One compact CRM strip</b> under the header: segment, card (tap-to-copy), LTV, last purchase, dietary. Tapping it opens the profile panel in the right column — no search, no other customers.</div>
+          <div class="item good"><span class="n">4</span><span><b>CRM inspector is a permanent right column</b> (like OA Manager’s contact panel) — always bound to the open thread’s customer, so there is no global search to wander into.</div>
+        </div>
+      </div>
+
+      <!-- TO-BE B: profile panel -->
+      <div class="frame-unit">
+        <div class="frame-col">
+          <div class="frame-label"><span class="pill tobe">TO-BE</span> B · Profile panel open (1 tap, this customer only)</div>
+          <div class="desk">
+            <div class="topbar">
+              <span style="font-size:13px;font-weight:800">LINE OA Staff</span>
+              <div class="sorttabs">
+                <span class="st on">Priority</span><span class="st">Recent</span><span class="st">Unread</span>
+              </div>
+              <span style="margin-left:auto;font-size:10px;color:var(--ink-faint)" class="mono">3 threads · 2 unread</span>
+            </div>
+            <div class="dbody">
+              <!-- left: thread list (dimmed) -->
+              <div class="dlist" style="filter:grayscale(1) opacity(0.55)">
+                <div class="lhead"><div class="lsearch">🔍 Search customers…</div></div>
+                <div class="lrow active">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">Natta_BKK ✨ <span class="t">09:38</span></div>
+                    <div class="p">Do you have the organic salad mix today? 🥬</div>
+                    <div class="chips"><span class="wf-chip fill">Champions</span></div>
+                  </div>
+                  <span class="unread">2</span>
+                </div>
+                <div class="lrow risk">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">Siriporn K. <span class="t">08:51</span></div>
+                    <div class="p">I haven’t ordered in 3 months…</div>
+                    <div class="chips"><span class="wf-chip" style="border-color:var(--anno);color:var(--anno)">⚠ At Risk</span></div>
+                  </div>
+                </div>
+              </div>
+              <!-- center: conversation (dimmed) -->
+              <div class="dchat" style="filter:grayscale(1) opacity(0.55)">
+                <div class="chead">
+                  <div class="wf-avatar"><div class="shoulders"></div></div>
+                  <div style="flex:1;min-width:0">
+                    <div class="wf-name">Natta_BKK ✨</div>
+                    <div class="wf-sub">Nattaporn · T1-892401</div>
+                  </div>
+                  <span class="wf-chip fill" style="font-size:10.5px;padding:4px 10px">👑 Platinum VIP</span>
+                </div>
+                <div class="cstrip">
+                  <span class="wf-chip fill">Champions</span>
+                  <span class="wf-chip" style="font-family:var(--mono)">6271-8890-4412 ⧉</span>
+                  <span class="dot"></span>
+                  <span>LTV <b>฿48,950</b></span><span class="dot"></span>
+                  <span>Last <b>3d</b></span>
+                </div>
+                <div class="dmsgs">
+                  <div class="dbub cust">Do you have the organic salad mix today? 🥬<div class="meta">09:38</div></div>
+                </div>
+                <div class="dcomp"><div class="field">Type a reply…</div><div class="send">➤</div></div>
+              </div>
+              <!-- right: CRM inspector (expanded) -->
+              <div class="dinsp wide">
+                <div class="ihead">
+                  <div class="wf-avatar" style="width:30px;height:30px"><div class="shoulders"></div></div>
+                  <div style="flex:1;min-width:0">
+                    <div class="wf-name">Nattaporn Watcharapong</div>
+                    <div class="wf-sub">T1-892401 · Champions · Platinum VIP</div>
+                  </div>
+                  <span class="anno good" style="top:8px;right:10px">5</span>
+                </div>
+                <div class="ibody">
+                  <div class="pf-card">
+                    <div class="brand">THE 1 LOYALTY CARD</div>
+                    <div class="num">6271-8890-4412 <span class="cp">⧉ copy</span></div>
+                  </div>
+                  <div class="pf-grid">
+                    <div class="pf-metric"><div class="l">LTV</div><div class="v">฿48,950</div><div class="s">38 orders</div></div>
+                    <div class="pf-metric"><div class="l">Last purchase</div><div class="v">3d</div><div class="s">฿1,425 · in-store</div></div>
+                  </div>
+                  <div class="pf-block">
+                    <div class="h">Top categories · dietary</div>
+                    <div class="pf-tags">
+                      <span class="wf-chip">Fresh Produce</span><span class="wf-chip">Butcher &amp; Seafood</span><span class="wf-chip">Imported</span>
+                      <span class="wf-chip fill" style="margin-left:4px">🥗 Organic</span><span class="wf-chip fill">Clean Food</span>
+                    </div>
+                  </div>
+                  <div class="pf-block">
+                    <div class="h">Recent purchases</div>
+                    <div class="pf-tx"><span class="id">ORD-…09881 · 12 Mar</span><span class="amt">฿1,425</span></div>
+                    <div class="pf-tx"><span class="id">ORD-…09412 · 05 Mar</span><span class="amt">฿1,680</span></div>
+                    <div class="pf-tx"><span class="id">ORD-…08990 · 28 Feb</span><span class="amt">฿1,850</span></div>
+                  </div>
+                  <div class="pf-block pf-note">
+                    <div class="h">🗒 Staff notes <span class="edit">✎ edit</span></div>
+                    <p>“Prefers organic Royal Project veg. Usually buys salmon &amp; Japanese grapes Friday evening.”</p>
+                  </div>
+                  <div class="pf-status">
+                    <div class="cell">LINE OA<b>✓ Natta_BKK ✨</b></div>
+                    <div class="cell">PDPA<b>✓ granted 2024-01-15</b></div>
+                  </div>
+                </div>
+                <div class="iact">
+                  <span class="wf-btn">📞 081-445-9821</span>
+                  <span class="wf-btn primary">＋ Add note</span>
+                  <span class="anno good" style="top:8px;right:10px">6</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="item good"><span class="n">5</span><span><b>No search bar, no customer list.</b> The panel is bound to the thread’s customer — staff literally cannot wander into someone else’s data. It sits in the right column, so the conversation stays fully visible and usable.</div>
+          <div class="item good"><span class="n">6</span><span><b>Real actions, not a dead button:</b> call the customer, add/edit a staff note. “Set as Active Customer” is deleted (it did nothing).</div>
+          <div class="item good"><span class="n" style="background:var(--ok)">7</span><span>Everything here already exists in <b>CustomerCrmDrawer.tsx</b> — this is re-scoping, not new data work.</div>
+        </div>
+      </div>
+
+      <!-- TO-BE C: link mode -->
+      <div class="frame-unit">
+        <div class="frame-col">
+          <div class="frame-label"><span class="pill tobe">TO-BE</span> C · Link mode — the only search</div>
+          <div class="desk">
+            <div class="topbar">
+              <span style="font-size:13px;font-weight:800">LINE OA Staff</span>
+              <div class="sorttabs">
+                <span class="st on">Priority</span><span class="st">Recent</span><span class="st">Unread</span>
+              </div>
+              <span style="margin-left:auto;font-size:10px;color:var(--ink-faint)" class="mono">3 threads · 2 unread</span>
+            </div>
+            <div class="dbody">
+              <!-- left: thread list (dimmed) -->
+              <div class="dlist" style="filter:grayscale(1) opacity(0.55)">
+                <div class="lhead"><div class="lsearch">🔍 Search customers…</div></div>
+                <div class="lrow active">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">New Customer <span class="t">10:02</span></div>
+                    <div class="p">Hi, I want to order for my mom’s birthday 🎂</div>
+                    <div class="chips"><span class="wf-chip" style="border-color:var(--keep);color:var(--keep)">🔗 not linked</span></div>
+                  </div>
+                </div>
+                <div class="lrow">
+                  <div class="wf-avatar" style="width:36px;height:36px"><div class="shoulders"></div></div>
+                  <div class="info">
+                    <div class="n">Worawut S. <span class="t">Yesterday</span></div>
+                    <div class="p">Thanks, see you tomorrow!</div>
+                    <div class="chips"><span class="wf-chip">Loyal Shoppers</span></div>
+                  </div>
+                </div>
+              </div>
+              <!-- center: conversation (dimmed) -->
+              <div class="dchat" style="filter:grayscale(1) opacity(0.55)">
+                <div class="chead">
+                  <div class="wf-avatar"><div class="shoulders"></div></div>
+                  <div style="flex:1;min-width:0">
+                    <div class="wf-name">New Customer</div>
+                    <div class="wf-sub">Ua1122…eeff00</div>
+                  </div>
+                  <span class="wf-btn" style="font-size:10.5px">🔗 Link CRM</span>
+                </div>
+                <div class="cstrip" style="color:var(--keep)">🔗 Not linked to CRM yet</div>
+                <div class="dmsgs">
+                  <div class="dbub cust">Hi, I want to order for my mom’s birthday 🎂<div class="meta">10:02</div></div>
+                </div>
+                <div class="dcomp"><div class="field">Type a reply…</div><div class="send">➤</div></div>
+              </div>
+              <!-- right: inspector (dimmed, empty) -->
+              <div class="dinsp" style="filter:grayscale(1) opacity(0.55)">
+                <div class="ihead"><span style="font-size:12px;font-weight:800">CRM</span><span class="wf-sub" style="margin-left:auto">New Customer</span></div>
+                <div class="empty"><div class="big">🔗</div><div>No CRM record linked yet</div></div>
+              </div>
+            </div>
+            <!-- link modal -->
+            <div class="modal-dim">
+              <div class="modal">
+                <div class="sheet-head" style="border-top:none">
+                  <span style="font-size:14px">🔗</span>
+                  <div><div class="t">Link LINE account to CRM</div><div class="s">Find the CRM record for “New Customer”</div></div>
+                  <span class="x">✕</span>
+                  <span class="anno good" style="top:8px;right:48px">8</span>
+                </div>
+                <div class="sheet-search" style="margin:12px 14px 6px"><span class="caret"></span><span style="color:var(--ink)">081-445</span></div>
+                <div class="sheet-body" style="padding:6px 14px">
+                  <div class="cust-row" style="border-color:var(--ink);border-width:1.5px">
+                    <div class="wf-avatar" style="width:38px;height:38px"><div class="shoulders"></div></div>
+                    <div class="info"><div class="n">Nattaporn Watcharapong</div><div class="m">6271-8890-4412 · 081-445-9821</div><div style="margin-top:4px"><span class="wf-chip fill">Champions</span></div></div>
+                    <div class="r">฿1,288<small>Avg spend</small></div>
+                  </div>
+                  <div class="cust-row" style="opacity:0.6">
+                    <div class="wf-avatar" style="width:38px;height:38px"><div class="shoulders"></div></div>
+                    <div class="info"><div class="n">Nattaporn S. (sister)</div><div class="m">6271-7710-2244 · 081-445-9877</div><div style="margin-top:4px"><span class="wf-chip">Member</span></div></div>
+                    <div class="r">฿412<small>Avg spend</small></div>
+                  </div>
+                </div>
+                <div class="sheet-action">
+                  <span class="wf-btn primary" style="display:block;width:100%;text-align:center">🔗 Link to “New Customer”</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="item good"><span class="n">8</span><span><b>Search survives — but only here.</b> When a thread has no CRM link, staff finds the right record by phone / name / card in a modal and links it. After linking, the inline strip (screen A) appears and search disappears.</div>
+          <div class="item good"><span class="n" style="background:var(--ok)">9</span><span>Disambiguation case (two similar names) is exactly what search is for — and the link action names the LINE account, so there’s no ambiguity about what gets linked.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. FLOW ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>When does search appear?</h2></div>
+    <p class="sec-desc">One decision point, one rule. If the answer is “yes”, staff never sees a search box.</p>
+    <div class="flow">
+      <div class="fbox r1c1">Open thread<small>customer messages OA</small></div>
+      <div class="farr r1c2"><span class="line"></span></div>
+      <div class="fbox diamond r1c3">CRM linked?<small>thread.customerCrmId</small></div>
+      <div class="farr r1c4"><span class="lbl">yes</span><span class="line"></span></div>
+      <div class="fbox r1c5">Inline context strip<small>tier · card · LTV · dietary</small></div>
+      <div class="farr r1c6"><span class="lbl">tap</span><span class="line"></span></div>
+      <div class="fbox done r1c7">Profile panel<small>this customer only · call · note</small></div>
+      <div class="farr v r2c3"><span class="line"></span><span class="no-lbl">no</span></div>
+      <div class="fbox search r3c3">Link CRM<small>search by phone / name / card</small></div>
+      <div class="farr r3c4"><span class="lbl">linked ✓</span><span class="line"></span></div>
+      <div class="fbox done r3c5">Inline context strip<small>search is gone</small></div>
+    </div>
+    <div class="note-box ok" style="margin-top:18px">
+      <b>Why this is safe:</b> the profile panel receives the customer from the thread record
+      (<code>/api/inbox/threads/:uid</code> already returns <code>customer</code>), not from a user-chosen search —
+      so “viewing another customer’s data” is structurally impossible. PDPA-wise, staff only ever see data
+      for the person they are actively serving.
+    </div>
+  </section>
+
+  <!-- ============ 5. IMPLEMENTATION NOTES ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>Implementation notes (for the repo)</h2></div>
+    <table class="needs">
+      <thead><tr><th style="width:30%">Change</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td class="task">OA Manager layout (desktop)</td><td><code>StaffInbox.tsx</code> — restructure the route into a 3-pane desktop layout: thread list (left, with Priority / Recent / Unread sort tabs + customer search), conversation (center), CRM inspector (right, permanent column). Mobile keeps the current single-column flow with the inspector as a bottom sheet.</td></tr>
+        <tr><td class="task">Split drawer into two modes</td><td><code>CustomerCrmDrawer.tsx</code> → <b>ProfilePanel</b> (no search, bound to one customer prop) + keep search UI for <b>link mode</b> only (rendered as a modal on desktop, bottom sheet on mobile). Delete the dead “Set as Active Customer” button.</td></tr>
+        <tr><td class="task">Header: tier chip + tappable strip</td><td><code>StaffInbox.tsx</code> — replace <code>CrmStrip</code> (2 rows) + value strip with one compact strip under the conversation header; tap → ProfilePanel in the right column. Card number tap-to-copy.</td></tr>
+        <tr><td class="task">Dietary + preferred promo on the strip</td><td><code>CustomerProfile.dietaryPreferences</code> + <code>preferredPromoType</code> already exist — render first 2 dietary tags + promo label.</td></tr>
+        <tr><td class="task">Editable staff note</td><td>New endpoint <code>PATCH /api/inbox/threads/:uid/note</code> (or store on the CRM record) + “Add note” in panel action bar. Needs a small backend addition — the only new server work.</td></tr>
+        <tr><td class="task">Call action</td><td><code>tel:</code> link in panel action bar; phone already in profile.</td></tr>
+        <tr><td class="task">Unchanged</td><td>Thread data, priority sort, intent chip, AI draft, copilot recs, composer — all kept as-is.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    <span>staff-inbox-v2.html · wireframe for review — not visual design</span>
+    <span>LineOA-PS-copilot · /staff · 2026-09-19</span>
+  </footer>
+</div>
+</body>
+</html>
