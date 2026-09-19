@@ -24238,6 +24238,89 @@ var INITIAL_PRODUCTS = [
     shelfLifeDays: 360
   }
 ];
+var now = /* @__PURE__ */ new Date();
+var iso = (days) => {
+  const d2 = new Date(now);
+  d2.setDate(d2.getDate() + days);
+  return d2.toISOString().slice(0, 10);
+};
+var ACTIVE_PROMOTIONS = [
+  {
+    id: "PROMO-FRESH15",
+    code: "FRESH15WED",
+    title: "15% Off Organic Vegetables",
+    description: "Royal Project & organic produce, max \u0E3F150 off. Fresh Wednesday pick.",
+    promoType: "CATEGORY_DISCOUNT_15PCT",
+    eligibleCategories: ["Fresh Produce"],
+    minSpend: 200,
+    maxDiscount: 150,
+    startsAt: iso(-2),
+    endsAt: iso(4),
+    active: true
+  },
+  {
+    id: "PROMO-GOURMETPAIR",
+    code: "GOURMETPAIR",
+    title: "Gourmet Pairing: Free Japanese Sauce",
+    description: "Buy 2 cuts of premium Australian beef, get a free Kikkoman marinade (\u0E3F145).",
+    promoType: "ONE_GET_ONE_FREE",
+    eligibleCategories: ["Butcher & Seafood"],
+    eligibleSkus: ["SKU-MEAT-003"],
+    minSpend: 700,
+    startsAt: iso(-1),
+    endsAt: iso(6),
+    minTier: ["GOLD", "PLATINUM_VIP"],
+    active: true
+  },
+  {
+    id: "PROMO-PANTRYSHIP",
+    code: "PANTRYSHIP",
+    title: "Free Express Delivery on Pantry Restock",
+    description: "Milk, eggs, rice & oil orders over \u0E3F500 ship free within the hour.",
+    promoType: "FREE_EXPRESS_DELIVERY",
+    eligibleCategories: ["Dairy & Eggs", "Pantry & Staples"],
+    minSpend: 500,
+    startsAt: iso(-5),
+    endsAt: iso(9),
+    active: true
+  },
+  {
+    id: "PROMO-IMPORT100",
+    code: "IMPORT100",
+    title: "\u0E3F100 Off Imported Gourmet",
+    description: "Japanese grapes, salmon & imported snacks \u2014 \u0E3F100 off orders over \u0E3F1,000.",
+    promoType: "INSTANT_CASH_VOUCHER",
+    eligibleCategories: ["Imported Gourmet"],
+    minSpend: 1e3,
+    maxDiscount: 100,
+    startsAt: iso(0),
+    endsAt: iso(12),
+    active: true
+  },
+  {
+    id: "PROMO-POINTS5X",
+    code: "THE1X5",
+    title: "The 1 Points 5\xD7 This Weekend",
+    description: "Earn 5\xD7 The 1 points on all fresh & dairy purchases, Sat\u2013Sun only.",
+    promoType: "THE_1_POINTS_X5",
+    eligibleCategories: ["Fresh Produce", "Dairy & Eggs"],
+    startsAt: iso(1),
+    endsAt: iso(3),
+    active: true
+  },
+  {
+    id: "PROMO-LINK100",
+    code: "LINK100THB",
+    title: "\u0E3F100 Off When You Link Your The 1 Card",
+    description: "One-time welcome coupon for followers who link their The 1 card to LINE.",
+    promoType: "INSTANT_CASH_VOUCHER",
+    eligibleCategories: [],
+    maxDiscount: 100,
+    startsAt: iso(-30),
+    endsAt: iso(60),
+    active: true
+  }
+];
 var INITIAL_CUSTOMERS = [
   {
     crmCustomerId: "T1-892401",
@@ -30005,19 +30088,26 @@ var schemaReady = null;
 function ensureSchema() {
   if (!useNeon || !sql) return Promise.resolve();
   if (!schemaReady) {
-    schemaReady = sql`
-      CREATE TABLE IF NOT EXISTS inbox_threads (
-        line_uid TEXT PRIMARY KEY,
-        customer_crm_id TEXT,
-        display_name TEXT NOT NULL DEFAULT 'LINE User',
-        avatar_url TEXT,
-        is_line_friend BOOLEAN NOT NULL DEFAULT FALSE,
-        messages JSONB NOT NULL DEFAULT '[]',
-        unread INTEGER NOT NULL DEFAULT 0,
-        last_ts BIGINT NOT NULL DEFAULT 0,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-    `.then(() => void 0).catch((err) => {
+    schemaReady = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS inbox_threads (
+          line_uid TEXT PRIMARY KEY,
+          customer_crm_id TEXT,
+          display_name TEXT NOT NULL DEFAULT 'LINE User',
+          avatar_url TEXT,
+          is_line_friend BOOLEAN NOT NULL DEFAULT FALSE,
+          messages JSONB NOT NULL DEFAULT '[]',
+          unread INTEGER NOT NULL DEFAULT 0,
+          last_ts BIGINT NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'active',
+          snooze_until BIGINT NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+      `;
+      await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`;
+      await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS snooze_until BIGINT NOT NULL DEFAULT 0`;
+      await sql`ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS replied_by TEXT`;
+    })().then(() => void 0).catch((err) => {
       schemaReady = null;
       throw err;
     });
@@ -30033,7 +30123,11 @@ function rowToThread(r) {
     isLineFriend: Boolean(r.is_line_friend),
     messages: Array.isArray(r.messages) ? r.messages : [],
     unread: Number(r.unread),
-    lastTs: Number(r.last_ts)
+    lastTs: Number(r.last_ts),
+    status: r.status || "active",
+    snoozeUntil: Number(r.snooze_until || 0),
+    repliedBy: r.replied_by ?? null,
+    updatedAt: r.updated_at instanceof Date ? r.updated_at.getTime() : Date.now()
   };
 }
 function newThread(lineUid) {
@@ -30044,7 +30138,11 @@ function newThread(lineUid) {
     isLineFriend: false,
     messages: [],
     unread: 0,
-    lastTs: 0
+    lastTs: 0,
+    status: "active",
+    snoozeUntil: 0,
+    repliedBy: null,
+    updatedAt: Date.now()
   };
 }
 function summarize(t) {
@@ -30056,25 +30154,34 @@ function summarize(t) {
     avatarUrl: t.avatarUrl,
     isLineFriend: t.isLineFriend,
     lastText: last ? last.text : "",
+    lastFrom: last ? last.from : null,
     lastTs: t.lastTs,
-    unread: t.unread
+    unread: t.unread,
+    status: t.status,
+    snoozeUntil: t.snoozeUntil,
+    repliedBy: t.repliedBy ?? null
   };
 }
 function newMessageId() {
   return `m-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 async function upsertThread(lineUid, mutate) {
+  const applyMutate = (thread2) => {
+    mutate(thread2);
+    thread2.updatedAt = Date.now();
+  };
   if (useNeon && sql) {
     await ensureSchema();
     const rows = await sql`SELECT * FROM inbox_threads WHERE line_uid = ${lineUid}`;
     const thread2 = rows.length ? rowToThread(rows[0]) : newThread(lineUid);
-    mutate(thread2);
+    applyMutate(thread2);
     await sql`
       INSERT INTO inbox_threads
-        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, updated_at)
+        (line_uid, customer_crm_id, display_name, avatar_url, is_line_friend, messages, unread, last_ts, status, snooze_until, replied_by, updated_at)
       VALUES
         (${thread2.lineUid}, ${thread2.customerCrmId}, ${thread2.displayName}, ${thread2.avatarUrl ?? null},
-         ${thread2.isLineFriend}, ${JSON.stringify(thread2.messages)}::jsonb, ${thread2.unread}, ${thread2.lastTs}, now())
+         ${thread2.isLineFriend}, ${JSON.stringify(thread2.messages)}::jsonb, ${thread2.unread}, ${thread2.lastTs},
+         ${thread2.status}, ${thread2.snoozeUntil}, ${thread2.repliedBy ?? null}, now())
       ON CONFLICT (line_uid) DO UPDATE SET
         customer_crm_id = EXCLUDED.customer_crm_id,
         display_name = EXCLUDED.display_name,
@@ -30083,12 +30190,15 @@ async function upsertThread(lineUid, mutate) {
         messages = EXCLUDED.messages,
         unread = EXCLUDED.unread,
         last_ts = EXCLUDED.last_ts,
+        status = EXCLUDED.status,
+        snooze_until = EXCLUDED.snooze_until,
+        replied_by = EXCLUDED.replied_by,
         updated_at = now()
     `;
     return thread2;
   }
   const thread = memThreads.get(lineUid) || newThread(lineUid);
-  mutate(thread);
+  applyMutate(thread);
   memThreads.set(lineUid, thread);
   return thread;
 }
@@ -30102,11 +30212,18 @@ var inboxStore = {
       t.messages.push({ id: newMessageId(), from: "customer", text, ts: Date.now() });
       t.unread += 1;
       t.lastTs = Date.now();
+      t.status = "active";
+      t.snoozeUntil = 0;
     });
   },
-  async appendStaffMessage(lineUid, text) {
+  async appendStaffMessage(lineUid, text, staffId) {
     return upsertThread(lineUid, (t) => {
-      t.messages.push({ id: newMessageId(), from: "staff", text, ts: Date.now() });
+      const msg = { id: newMessageId(), from: "staff", text, ts: Date.now() };
+      if (staffId) {
+        msg.staffId = staffId;
+        t.repliedBy = staffId;
+      }
+      t.messages.push(msg);
       t.lastTs = Date.now();
     });
   },
@@ -30115,6 +30232,12 @@ var inboxStore = {
       t.customerCrmId = crmCustomerId;
       if (identity?.displayName) t.displayName = identity.displayName;
       if (identity?.avatarUrl) t.avatarUrl = identity.avatarUrl;
+    });
+  },
+  async setStatus(lineUid, status, snoozeUntil = 0) {
+    return upsertThread(lineUid, (t) => {
+      t.status = status;
+      t.snoozeUntil = status === "snoozed" ? snoozeUntil : 0;
     });
   },
   async listThreads() {
@@ -30145,6 +30268,55 @@ var inboxStore = {
     }
     return thread;
   },
+  async getAllThreads() {
+    if (useNeon && sql) {
+      await ensureSchema();
+      const rows = await sql`SELECT * FROM inbox_threads`;
+      return rows.map(rowToThread);
+    }
+    return Array.from(memThreads.values());
+  },
+  async backfillAllAttribution(staffIds) {
+    if (!staffIds.length) return 0;
+    let updated = 0;
+    const needsBackfill = (messages) => {
+      const staffMsgs = messages.filter((m2) => m2.from === "staff");
+      return staffMsgs.length > 0 && !staffMsgs.some((m2) => m2.staffId);
+    };
+    const assign = (messages) => {
+      let i = 0;
+      for (const m2 of messages) {
+        if (m2.from === "staff" && !m2.staffId) m2.staffId = staffIds[i++ % staffIds.length];
+      }
+      const lastStaff = [...messages].reverse().find((m2) => m2.from === "staff");
+      return lastStaff?.staffId ?? null;
+    };
+    if (useNeon && sql) {
+      await ensureSchema();
+      const rows = await sql`SELECT line_uid, messages FROM inbox_threads`;
+      for (const r of rows) {
+        const messages = Array.isArray(r.messages) ? r.messages : [];
+        if (!needsBackfill(messages)) continue;
+        const repliedBy = assign(messages);
+        await sql`
+          UPDATE inbox_threads
+          SET messages = ${JSON.stringify(messages)}::jsonb,
+              replied_by = ${repliedBy},
+              updated_at = now()
+          WHERE line_uid = ${r.line_uid}
+        `;
+        updated++;
+      }
+      return updated;
+    }
+    for (const t of memThreads.values()) {
+      if (!needsBackfill(t.messages)) continue;
+      t.repliedBy = assign(t.messages);
+      t.updatedAt = Date.now();
+      updated++;
+    }
+    return updated;
+  },
   async health() {
     if (useNeon && sql) {
       try {
@@ -30159,13 +30331,1751 @@ var inboxStore = {
   }
 };
 
+// node_modules/lucia/dist/date.js
+var TimeSpan = class _TimeSpan {
+  constructor(value, unit) {
+    this.value = value;
+    this.unit = unit;
+  }
+  value;
+  unit;
+  milliseconds() {
+    if (this.unit === "ms") {
+      return this.value;
+    }
+    if (this.unit === "s") {
+      return this.value * 1e3;
+    }
+    if (this.unit === "m") {
+      return this.value * 1e3 * 60;
+    }
+    if (this.unit === "h") {
+      return this.value * 1e3 * 60 * 60;
+    }
+    if (this.unit === "d") {
+      return this.value * 1e3 * 60 * 60 * 24;
+    }
+    return this.value * 1e3 * 60 * 60 * 24 * 7;
+  }
+  seconds() {
+    return this.milliseconds() / 1e3;
+  }
+  transform(x2) {
+    return new _TimeSpan(Math.round(this.milliseconds() * x2), "ms");
+  }
+};
+function isWithinExpirationDate(date) {
+  return Date.now() < date.getTime();
+}
+function createDate(timeSpan) {
+  return new Date(Date.now() + timeSpan.milliseconds());
+}
+
+// node_modules/lucia/dist/cookie.js
+function serializeCookie(name, value, attributes) {
+  const keyValueEntries = [];
+  keyValueEntries.push([encodeURIComponent(name), encodeURIComponent(value)]);
+  if (attributes?.domain !== void 0) {
+    keyValueEntries.push(["Domain", attributes.domain]);
+  }
+  if (attributes?.expires !== void 0) {
+    keyValueEntries.push(["Expires", attributes.expires.toUTCString()]);
+  }
+  if (attributes?.httpOnly) {
+    keyValueEntries.push(["HttpOnly"]);
+  }
+  if (attributes?.maxAge !== void 0) {
+    keyValueEntries.push(["Max-Age", attributes.maxAge.toString()]);
+  }
+  if (attributes?.path !== void 0) {
+    keyValueEntries.push(["Path", attributes.path]);
+  }
+  if (attributes?.sameSite === "lax") {
+    keyValueEntries.push(["SameSite", "Lax"]);
+  }
+  if (attributes?.sameSite === "none") {
+    keyValueEntries.push(["SameSite", "None"]);
+  }
+  if (attributes?.sameSite === "strict") {
+    keyValueEntries.push(["SameSite", "Strict"]);
+  }
+  if (attributes?.secure) {
+    keyValueEntries.push(["Secure"]);
+  }
+  return keyValueEntries.map((pair) => pair.join("=")).join("; ");
+}
+function parseCookies(header) {
+  const cookies = /* @__PURE__ */ new Map();
+  const items = header.split("; ");
+  for (const item of items) {
+    const pair = item.split("=");
+    const rawKey = pair[0];
+    const rawValue = pair[1] ?? "";
+    if (!rawKey)
+      continue;
+    cookies.set(decodeURIComponent(rawKey), decodeURIComponent(rawValue));
+  }
+  return cookies;
+}
+var CookieController = class {
+  constructor(cookieName, baseCookieAttributes, cookieOptions) {
+    this.cookieName = cookieName;
+    this.cookieExpiresIn = cookieOptions?.expiresIn ?? null;
+    this.baseCookieAttributes = baseCookieAttributes;
+  }
+  cookieName;
+  cookieExpiresIn;
+  baseCookieAttributes;
+  createCookie(value) {
+    return new Cookie(this.cookieName, value, {
+      ...this.baseCookieAttributes,
+      maxAge: this.cookieExpiresIn?.seconds()
+    });
+  }
+  createBlankCookie() {
+    return new Cookie(this.cookieName, "", {
+      ...this.baseCookieAttributes,
+      maxAge: 0
+    });
+  }
+  parse(header) {
+    const cookies = parseCookies(header);
+    return cookies.get(this.cookieName) ?? null;
+  }
+};
+var Cookie = class {
+  constructor(name, value, attributes) {
+    this.name = name;
+    this.value = value;
+    this.attributes = attributes;
+  }
+  name;
+  value;
+  attributes;
+  serialize() {
+    return serializeCookie(this.name, this.value, this.attributes);
+  }
+};
+
+// node_modules/@oslojs/encoding/dist/hex.js
+function encodeHexLowerCase(data) {
+  let result = "";
+  for (let i = 0; i < data.length; i++) {
+    result += alphabetLowerCase[data[i] >> 4];
+    result += alphabetLowerCase[data[i] & 15];
+  }
+  return result;
+}
+function decodeHex(data) {
+  if (data.length % 2 !== 0) {
+    throw new Error("Invalid hex string");
+  }
+  const result = new Uint8Array(data.length / 2);
+  for (let i = 0; i < data.length; i += 2) {
+    if (!(data[i] in decodeMap)) {
+      throw new Error("Invalid character");
+    }
+    if (!(data[i + 1] in decodeMap)) {
+      throw new Error("Invalid character");
+    }
+    result[i / 2] |= decodeMap[data[i]] << 4;
+    result[i / 2] |= decodeMap[data[i + 1]];
+  }
+  return result;
+}
+var alphabetLowerCase = "0123456789abcdef";
+var decodeMap = {
+  "0": 0,
+  "1": 1,
+  "2": 2,
+  "3": 3,
+  "4": 4,
+  "5": 5,
+  "6": 6,
+  "7": 7,
+  "8": 8,
+  "9": 9,
+  a: 10,
+  A: 10,
+  b: 11,
+  B: 11,
+  c: 12,
+  C: 12,
+  d: 13,
+  D: 13,
+  e: 14,
+  E: 14,
+  f: 15,
+  F: 15
+};
+
+// node_modules/@oslojs/encoding/dist/base32.js
+function encodeBase32LowerCaseNoPadding(bytes) {
+  return encodeBase32_internal(bytes, base32LowerCaseAlphabet, EncodingPadding.None);
+}
+function encodeBase32_internal(bytes, alphabet, padding) {
+  let result = "";
+  for (let i = 0; i < bytes.byteLength; i += 5) {
+    let buffer = 0n;
+    let bufferBitSize = 0;
+    for (let j = 0; j < 5 && i + j < bytes.byteLength; j++) {
+      buffer = buffer << 8n | BigInt(bytes[i + j]);
+      bufferBitSize += 8;
+    }
+    if (bufferBitSize % 5 !== 0) {
+      buffer = buffer << BigInt(5 - bufferBitSize % 5);
+      bufferBitSize += 5 - bufferBitSize % 5;
+    }
+    for (let j = 0; j < 8; j++) {
+      if (bufferBitSize >= 5) {
+        result += alphabet[Number(buffer >> BigInt(bufferBitSize - 5) & 0x1fn)];
+        bufferBitSize -= 5;
+      } else if (bufferBitSize > 0) {
+        result += alphabet[Number(buffer << BigInt(6 - bufferBitSize) & 0x3fn)];
+        bufferBitSize = 0;
+      } else if (padding === EncodingPadding.Include) {
+        result += "=";
+      }
+    }
+  }
+  return result;
+}
+var base32LowerCaseAlphabet = "abcdefghijklmnopqrstuvwxyz234567";
+var EncodingPadding;
+(function(EncodingPadding3) {
+  EncodingPadding3[EncodingPadding3["Include"] = 0] = "Include";
+  EncodingPadding3[EncodingPadding3["None"] = 1] = "None";
+})(EncodingPadding || (EncodingPadding = {}));
+var DecodingPadding;
+(function(DecodingPadding3) {
+  DecodingPadding3[DecodingPadding3["Required"] = 0] = "Required";
+  DecodingPadding3[DecodingPadding3["Ignore"] = 1] = "Ignore";
+})(DecodingPadding || (DecodingPadding = {}));
+
+// node_modules/@oslojs/encoding/dist/base64.js
+var EncodingPadding2;
+(function(EncodingPadding3) {
+  EncodingPadding3[EncodingPadding3["Include"] = 0] = "Include";
+  EncodingPadding3[EncodingPadding3["None"] = 1] = "None";
+})(EncodingPadding2 || (EncodingPadding2 = {}));
+var DecodingPadding2;
+(function(DecodingPadding3) {
+  DecodingPadding3[DecodingPadding3["Required"] = 0] = "Required";
+  DecodingPadding3[DecodingPadding3["Ignore"] = 1] = "Ignore";
+})(DecodingPadding2 || (DecodingPadding2 = {}));
+
+// node_modules/@oslojs/binary/dist/uint.js
+var BigEndian = class {
+  uint8(data, offset) {
+    if (data.byteLength < offset + 1) {
+      throw new TypeError("Insufficient bytes");
+    }
+    return data[offset];
+  }
+  uint16(data, offset) {
+    if (data.byteLength < offset + 2) {
+      throw new TypeError("Insufficient bytes");
+    }
+    return data[offset] << 8 | data[offset + 1];
+  }
+  uint32(data, offset) {
+    if (data.byteLength < offset + 4) {
+      throw new TypeError("Insufficient bytes");
+    }
+    let result = 0;
+    for (let i = 0; i < 4; i++) {
+      result |= data[offset + i] << 24 - i * 8;
+    }
+    return result;
+  }
+  uint64(data, offset) {
+    if (data.byteLength < offset + 8) {
+      throw new TypeError("Insufficient bytes");
+    }
+    let result = 0n;
+    for (let i = 0; i < 8; i++) {
+      result |= BigInt(data[offset + i]) << BigInt(56 - i * 8);
+    }
+    return result;
+  }
+  putUint8(target, value, offset) {
+    if (target.length < offset + 1) {
+      throw new TypeError("Not enough space");
+    }
+    if (value < 0 || value > 255) {
+      throw new TypeError("Invalid uint8 value");
+    }
+    target[offset] = value;
+  }
+  putUint16(target, value, offset) {
+    if (target.length < offset + 2) {
+      throw new TypeError("Not enough space");
+    }
+    if (value < 0 || value > 65535) {
+      throw new TypeError("Invalid uint16 value");
+    }
+    target[offset] = value >> 8;
+    target[offset + 1] = value & 255;
+  }
+  putUint32(target, value, offset) {
+    if (target.length < offset + 4) {
+      throw new TypeError("Not enough space");
+    }
+    if (value < 0 || value > 4294967295) {
+      throw new TypeError("Invalid uint32 value");
+    }
+    for (let i = 0; i < 4; i++) {
+      target[offset + i] = value >> (3 - i) * 8 & 255;
+    }
+  }
+  putUint64(target, value, offset) {
+    if (target.length < offset + 8) {
+      throw new TypeError("Not enough space");
+    }
+    if (value < 0 || value > 18446744073709551615n) {
+      throw new TypeError("Invalid uint64 value");
+    }
+    for (let i = 0; i < 8; i++) {
+      target[offset + i] = Number(value >> BigInt((7 - i) * 8) & 0xffn);
+    }
+  }
+};
+var LittleEndian = class {
+  uint8(data, offset) {
+    if (data.byteLength < offset + 1) {
+      throw new TypeError("Insufficient bytes");
+    }
+    return data[offset];
+  }
+  uint16(data, offset) {
+    if (data.byteLength < offset + 2) {
+      throw new TypeError("Insufficient bytes");
+    }
+    return data[offset] | data[offset + 1] << 8;
+  }
+  uint32(data, offset) {
+    if (data.byteLength < offset + 4) {
+      throw new TypeError("Insufficient bytes");
+    }
+    let result = 0;
+    for (let i = 0; i < 4; i++) {
+      result |= data[offset + i] << i * 8;
+    }
+    return result;
+  }
+  uint64(data, offset) {
+    if (data.byteLength < offset + 8) {
+      throw new TypeError("Insufficient bytes");
+    }
+    let result = 0n;
+    for (let i = 0; i < 8; i++) {
+      result |= BigInt(data[offset + i]) << BigInt(i * 8);
+    }
+    return result;
+  }
+  putUint8(target, value, offset) {
+    if (target.length < 1 + offset) {
+      throw new TypeError("Insufficient space");
+    }
+    if (value < 0 || value > 255) {
+      throw new TypeError("Invalid uint8 value");
+    }
+    target[offset] = value;
+  }
+  putUint16(target, value, offset) {
+    if (target.length < 2 + offset) {
+      throw new TypeError("Insufficient space");
+    }
+    if (value < 0 || value > 65535) {
+      throw new TypeError("Invalid uint16 value");
+    }
+    target[offset + 1] = value >> 8;
+    target[offset] = value & 255;
+  }
+  putUint32(target, value, offset) {
+    if (target.length < 4 + offset) {
+      throw new TypeError("Insufficient space");
+    }
+    if (value < 0 || value > 4294967295) {
+      throw new TypeError("Invalid uint32 value");
+    }
+    for (let i = 0; i < 4; i++) {
+      target[offset + i] = value >> i * 8 & 255;
+    }
+  }
+  putUint64(target, value, offset) {
+    if (target.length < 8 + offset) {
+      throw new TypeError("Insufficient space");
+    }
+    if (value < 0 || value > 18446744073709551615n) {
+      throw new TypeError("Invalid uint64 value");
+    }
+    for (let i = 0; i < 8; i++) {
+      target[offset + i] = Number(value >> BigInt(i * 8) & 0xffn);
+    }
+  }
+};
+var bigEndian = new BigEndian();
+var littleEndian = new LittleEndian();
+
+// node_modules/@oslojs/crypto/dist/subtle/index.js
+function constantTimeEqual(a2, b2) {
+  if (a2.length !== b2.length) {
+    return false;
+  }
+  let c = 0;
+  for (let i = 0; i < a2.length; i++) {
+    c |= a2[i] ^ b2[i];
+  }
+  return c === 0;
+}
+
+// node_modules/lucia/dist/scrypt/index.js
+async function scrypt(password, salt, options) {
+  const { N, r, p: p2 } = options;
+  const dkLen = options.dkLen ?? 32;
+  const maxmem = 1024 ** 3 + 1024;
+  const blockSize = 128 * r;
+  const blockSize32 = blockSize / 4;
+  if (N <= 1 || (N & N - 1) !== 0 || N >= 2 ** (blockSize / 8) || N > 2 ** 32) {
+    throw new Error("Scrypt: N must be larger than 1, a power of 2, less than 2^(128 * r / 8) and less than 2^32");
+  }
+  if (p2 < 0 || p2 > (2 ** 32 - 1) * 32 / blockSize) {
+    throw new Error("Scrypt: p must be a positive integer less than or equal to ((2^32 - 1) * 32) / (128 * r)");
+  }
+  if (dkLen < 0 || dkLen > (2 ** 32 - 1) * 32) {
+    throw new Error("Scrypt: dkLen should be positive integer less than or equal to (2^32 - 1) * 32");
+  }
+  const memUsed = blockSize * (N + p2);
+  if (memUsed > maxmem) {
+    throw new Error(`Scrypt: parameters too large, ${memUsed} (128 * r * (N + p)) > ${maxmem} (maxmem)`);
+  }
+  const B = await pbkdf2(password, salt, { c: 1, dkLen: blockSize * p2 });
+  const B32 = u32(B);
+  const V = u32(new Uint8Array(blockSize * N));
+  const tmp = u32(new Uint8Array(blockSize));
+  for (let pi = 0; pi < p2; pi++) {
+    const Pi = blockSize32 * pi;
+    for (let i = 0; i < blockSize32; i++)
+      V[i] = B32[Pi + i];
+    for (let i = 0, pos = 0; i < N - 1; i++) {
+      BlockMix(V, pos, V, pos += blockSize32, r);
+      await new Promise((r2) => r2());
+    }
+    BlockMix(V, (N - 1) * blockSize32, B32, Pi, r);
+    for (let i = 0; i < N; i++) {
+      const j = B32[Pi + blockSize32 - 16] % N;
+      for (let k = 0; k < blockSize32; k++) {
+        tmp[k] = B32[Pi + k] ^ V[j * blockSize32 + k];
+      }
+      BlockMix(tmp, 0, B32, Pi, r);
+      await new Promise((r2) => r2());
+    }
+  }
+  const res = await pbkdf2(password, B, { c: 1, dkLen });
+  B.fill(0);
+  V.fill(0);
+  tmp.fill(0);
+  return res;
+}
+function rotl(a2, b2) {
+  return a2 << b2 | a2 >>> 32 - b2;
+}
+function XorAndSalsa(prev, pi, input, ii2, out, oi) {
+  const y00 = prev[pi++] ^ input[ii2++], y01 = prev[pi++] ^ input[ii2++];
+  const y02 = prev[pi++] ^ input[ii2++], y03 = prev[pi++] ^ input[ii2++];
+  const y04 = prev[pi++] ^ input[ii2++], y05 = prev[pi++] ^ input[ii2++];
+  const y06 = prev[pi++] ^ input[ii2++], y07 = prev[pi++] ^ input[ii2++];
+  const y08 = prev[pi++] ^ input[ii2++], y09 = prev[pi++] ^ input[ii2++];
+  const y10 = prev[pi++] ^ input[ii2++], y11 = prev[pi++] ^ input[ii2++];
+  const y12 = prev[pi++] ^ input[ii2++], y13 = prev[pi++] ^ input[ii2++];
+  const y14 = prev[pi++] ^ input[ii2++], y15 = prev[pi++] ^ input[ii2++];
+  let x00 = y00, x01 = y01, x02 = y02, x03 = y03, x04 = y04, x05 = y05, x06 = y06, x07 = y07, x08 = y08, x09 = y09, x10 = y10, x11 = y11, x12 = y12, x13 = y13, x14 = y14, x15 = y15;
+  for (let i = 0; i < 8; i += 2) {
+    x04 ^= rotl(x00 + x12 | 0, 7);
+    x08 ^= rotl(x04 + x00 | 0, 9);
+    x12 ^= rotl(x08 + x04 | 0, 13);
+    x00 ^= rotl(x12 + x08 | 0, 18);
+    x09 ^= rotl(x05 + x01 | 0, 7);
+    x13 ^= rotl(x09 + x05 | 0, 9);
+    x01 ^= rotl(x13 + x09 | 0, 13);
+    x05 ^= rotl(x01 + x13 | 0, 18);
+    x14 ^= rotl(x10 + x06 | 0, 7);
+    x02 ^= rotl(x14 + x10 | 0, 9);
+    x06 ^= rotl(x02 + x14 | 0, 13);
+    x10 ^= rotl(x06 + x02 | 0, 18);
+    x03 ^= rotl(x15 + x11 | 0, 7);
+    x07 ^= rotl(x03 + x15 | 0, 9);
+    x11 ^= rotl(x07 + x03 | 0, 13);
+    x15 ^= rotl(x11 + x07 | 0, 18);
+    x01 ^= rotl(x00 + x03 | 0, 7);
+    x02 ^= rotl(x01 + x00 | 0, 9);
+    x03 ^= rotl(x02 + x01 | 0, 13);
+    x00 ^= rotl(x03 + x02 | 0, 18);
+    x06 ^= rotl(x05 + x04 | 0, 7);
+    x07 ^= rotl(x06 + x05 | 0, 9);
+    x04 ^= rotl(x07 + x06 | 0, 13);
+    x05 ^= rotl(x04 + x07 | 0, 18);
+    x11 ^= rotl(x10 + x09 | 0, 7);
+    x08 ^= rotl(x11 + x10 | 0, 9);
+    x09 ^= rotl(x08 + x11 | 0, 13);
+    x10 ^= rotl(x09 + x08 | 0, 18);
+    x12 ^= rotl(x15 + x14 | 0, 7);
+    x13 ^= rotl(x12 + x15 | 0, 9);
+    x14 ^= rotl(x13 + x12 | 0, 13);
+    x15 ^= rotl(x14 + x13 | 0, 18);
+  }
+  out[oi++] = y00 + x00 | 0;
+  out[oi++] = y01 + x01 | 0;
+  out[oi++] = y02 + x02 | 0;
+  out[oi++] = y03 + x03 | 0;
+  out[oi++] = y04 + x04 | 0;
+  out[oi++] = y05 + x05 | 0;
+  out[oi++] = y06 + x06 | 0;
+  out[oi++] = y07 + x07 | 0;
+  out[oi++] = y08 + x08 | 0;
+  out[oi++] = y09 + x09 | 0;
+  out[oi++] = y10 + x10 | 0;
+  out[oi++] = y11 + x11 | 0;
+  out[oi++] = y12 + x12 | 0;
+  out[oi++] = y13 + x13 | 0;
+  out[oi++] = y14 + x14 | 0;
+  out[oi++] = y15 + x15 | 0;
+}
+async function pbkdf2(password, salt, options) {
+  const pwKey = await crypto.subtle.importKey("raw", password, "PBKDF2", false, ["deriveBits"]);
+  const keyBuffer = await crypto.subtle.deriveBits({
+    name: "PBKDF2",
+    hash: "SHA-256",
+    salt,
+    iterations: options.c
+  }, pwKey, options.dkLen * 8);
+  return new Uint8Array(keyBuffer);
+}
+function BlockMix(input, ii2, out, oi, r) {
+  let head = oi + 0;
+  let tail = oi + 16 * r;
+  for (let i = 0; i < 16; i++)
+    out[tail + i] = input[ii2 + (2 * r - 1) * 16 + i];
+  for (let i = 0; i < r; i++, head += 16, ii2 += 16) {
+    XorAndSalsa(out, tail, input, ii2, out, head);
+    if (i > 0)
+      tail += 16;
+    XorAndSalsa(out, head, input, ii2 += 16, out, tail);
+  }
+}
+function u32(arr) {
+  return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+}
+
+// node_modules/lucia/dist/crypto.js
+async function generateScryptKey(data, salt, blockSize = 16) {
+  const encodedData = new TextEncoder().encode(data);
+  const encodedSalt = new TextEncoder().encode(salt);
+  const keyUint8Array = await scrypt(encodedData, encodedSalt, {
+    N: 16384,
+    r: blockSize,
+    p: 1,
+    dkLen: 64
+  });
+  return new Uint8Array(keyUint8Array);
+}
+function generateIdFromEntropySize(size) {
+  const buffer = crypto.getRandomValues(new Uint8Array(size));
+  return encodeBase32LowerCaseNoPadding(buffer);
+}
+var Scrypt = class {
+  async hash(password) {
+    const salt = encodeHexLowerCase(crypto.getRandomValues(new Uint8Array(16)));
+    const key = await generateScryptKey(password.normalize("NFKC"), salt);
+    return `${salt}:${encodeHexLowerCase(key)}`;
+  }
+  async verify(hash, password) {
+    const parts = hash.split(":");
+    if (parts.length !== 2)
+      return false;
+    const [salt, key] = parts;
+    const targetKey = await generateScryptKey(password.normalize("NFKC"), salt);
+    return constantTimeEqual(targetKey, decodeHex(key));
+  }
+};
+
+// node_modules/lucia/dist/core.js
+var Lucia = class {
+  adapter;
+  sessionExpiresIn;
+  sessionCookieController;
+  getSessionAttributes;
+  getUserAttributes;
+  sessionCookieName;
+  constructor(adapter2, options) {
+    this.adapter = adapter2;
+    this.getUserAttributes = (databaseUserAttributes) => {
+      if (options && options.getUserAttributes) {
+        return options.getUserAttributes(databaseUserAttributes);
+      }
+      return {};
+    };
+    this.getSessionAttributes = (databaseSessionAttributes) => {
+      if (options && options.getSessionAttributes) {
+        return options.getSessionAttributes(databaseSessionAttributes);
+      }
+      return {};
+    };
+    this.sessionExpiresIn = options?.sessionExpiresIn ?? new TimeSpan(30, "d");
+    this.sessionCookieName = options?.sessionCookie?.name ?? "auth_session";
+    let sessionCookieExpiresIn = this.sessionExpiresIn;
+    if (options?.sessionCookie?.expires === false) {
+      sessionCookieExpiresIn = new TimeSpan(400, "d");
+    }
+    const baseSessionCookieAttributes = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      ...options?.sessionCookie?.attributes
+    };
+    this.sessionCookieController = new CookieController(this.sessionCookieName, baseSessionCookieAttributes, {
+      expiresIn: sessionCookieExpiresIn
+    });
+  }
+  async getUserSessions(userId) {
+    const databaseSessions = await this.adapter.getUserSessions(userId);
+    const sessions = [];
+    for (const databaseSession of databaseSessions) {
+      if (!isWithinExpirationDate(databaseSession.expiresAt)) {
+        continue;
+      }
+      sessions.push({
+        id: databaseSession.id,
+        expiresAt: databaseSession.expiresAt,
+        userId: databaseSession.userId,
+        fresh: false,
+        ...this.getSessionAttributes(databaseSession.attributes)
+      });
+    }
+    return sessions;
+  }
+  async validateSession(sessionId) {
+    const [databaseSession, databaseUser] = await this.adapter.getSessionAndUser(sessionId);
+    if (!databaseSession) {
+      return { session: null, user: null };
+    }
+    if (!databaseUser) {
+      await this.adapter.deleteSession(databaseSession.id);
+      return { session: null, user: null };
+    }
+    if (!isWithinExpirationDate(databaseSession.expiresAt)) {
+      await this.adapter.deleteSession(databaseSession.id);
+      return { session: null, user: null };
+    }
+    const activePeriodExpirationDate = new Date(databaseSession.expiresAt.getTime() - this.sessionExpiresIn.milliseconds() / 2);
+    const session = {
+      ...this.getSessionAttributes(databaseSession.attributes),
+      id: databaseSession.id,
+      userId: databaseSession.userId,
+      fresh: false,
+      expiresAt: databaseSession.expiresAt
+    };
+    if (!isWithinExpirationDate(activePeriodExpirationDate)) {
+      session.fresh = true;
+      session.expiresAt = createDate(this.sessionExpiresIn);
+      await this.adapter.updateSessionExpiration(databaseSession.id, session.expiresAt);
+    }
+    const user = {
+      ...this.getUserAttributes(databaseUser.attributes),
+      id: databaseUser.id
+    };
+    return { user, session };
+  }
+  async createSession(userId, attributes, options) {
+    const sessionId = options?.sessionId ?? generateIdFromEntropySize(25);
+    const sessionExpiresAt = createDate(this.sessionExpiresIn);
+    await this.adapter.setSession({
+      id: sessionId,
+      userId,
+      expiresAt: sessionExpiresAt,
+      attributes
+    });
+    const session = {
+      id: sessionId,
+      userId,
+      fresh: true,
+      expiresAt: sessionExpiresAt,
+      ...this.getSessionAttributes(attributes)
+    };
+    return session;
+  }
+  async invalidateSession(sessionId) {
+    await this.adapter.deleteSession(sessionId);
+  }
+  async invalidateUserSessions(userId) {
+    await this.adapter.deleteUserSessions(userId);
+  }
+  async deleteExpiredSessions() {
+    await this.adapter.deleteExpiredSessions();
+  }
+  readSessionCookie(cookieHeader) {
+    const sessionId = this.sessionCookieController.parse(cookieHeader);
+    return sessionId;
+  }
+  readBearerToken(authorizationHeader) {
+    const [authScheme, token] = authorizationHeader.split(" ");
+    if (authScheme !== "Bearer") {
+      return null;
+    }
+    return token ?? null;
+  }
+  createSessionCookie(sessionId) {
+    return this.sessionCookieController.createCookie(sessionId);
+  }
+  createBlankSessionCookie() {
+    return this.sessionCookieController.createBlankCookie();
+  }
+};
+
+// server/adminStore.ts
+var neonUrl2 = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+var useNeon2 = Boolean(neonUrl2);
+var sql2 = useNeon2 ? cs(neonUrl2) : null;
+var scrypt2 = new Scrypt();
+async function hashPassword(password) {
+  return scrypt2.hash(password);
+}
+async function verifyPassword(passwordHash, password) {
+  return scrypt2.verify(passwordHash, password);
+}
+function newId(prefix) {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+function dayOffsetDate(offset) {
+  const d2 = /* @__PURE__ */ new Date();
+  d2.setDate(d2.getDate() + offset);
+  return `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
+}
+function dayKeyOf(ms2) {
+  const d2 = new Date(ms2);
+  return `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
+}
+function toDayKey(v2) {
+  const d2 = v2 instanceof Date ? v2 : new Date(v2);
+  return `${d2.getUTCFullYear()}-${String(d2.getUTCMonth() + 1).padStart(2, "0")}-${String(d2.getUTCDate()).padStart(2, "0")}`;
+}
+function dayStartMs(day) {
+  return (/* @__PURE__ */ new Date(`${day}T00:00:00Z`)).getTime();
+}
+function dayEndMs(day) {
+  return (/* @__PURE__ */ new Date(`${day}T23:59:59.999Z`)).getTime();
+}
+function toIso(v2) {
+  return v2 instanceof Date ? v2.toISOString() : String(v2 ?? "");
+}
+function avgRound(values) {
+  if (!values.length) return null;
+  return Math.round(values.reduce((a2, b2) => a2 + b2, 0) / values.length * 10) / 10;
+}
+function firstResponseOf(t) {
+  let i = -1;
+  for (let k = 0; k < t.messages.length; k++) {
+    if (t.messages[k].from === "staff") {
+      i = k;
+      break;
+    }
+  }
+  if (i < 0) return null;
+  const staffTs = t.messages[i].ts;
+  for (let j = i - 1; j >= 0; j--) {
+    if (t.messages[j].from === "customer") {
+      const deltaMs = staffTs - t.messages[j].ts;
+      if (deltaMs < 0) return null;
+      return { deltaMin: deltaMs / 6e4, staffTs };
+    }
+  }
+  return null;
+}
+var schemaReady2 = null;
+function ensureSchema2() {
+  if (!useNeon2 || !sql2) return Promise.resolve();
+  if (!schemaReady2) {
+    schemaReady2 = (async () => {
+      await sql2`
+        CREATE TABLE IF NOT EXISTS staff_users (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL,
+          branch TEXT NOT NULL,
+          is_admin BOOLEAN NOT NULL DEFAULT FALSE
+        );
+      `;
+      await sql2`
+        CREATE TABLE IF NOT EXISTS lucia_sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES staff_users(id),
+          expires_at TIMESTAMPTZ NOT NULL
+        );
+      `;
+      await sql2`
+        CREATE TABLE IF NOT EXISTS promotions (
+          id TEXT PRIMARY KEY,
+          code TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          promo_type TEXT NOT NULL,
+          eligible_categories TEXT[] NOT NULL DEFAULT '{}',
+          eligible_skus TEXT[],
+          starts_at TIMESTAMPTZ NOT NULL,
+          ends_at TIMESTAMPTZ NOT NULL,
+          min_spend INTEGER,
+          max_discount INTEGER,
+          min_tier TEXT[],
+          active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_by TEXT,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+      `;
+      await sql2`
+        CREATE TABLE IF NOT EXISTS tickets (
+          id TEXT PRIMARY KEY,
+          thread_line_uid TEXT NOT NULL,
+          staff_id TEXT NOT NULL REFERENCES staff_users(id),
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'open',
+          answer TEXT,
+          answered_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          answered_at TIMESTAMPTZ
+        );
+      `;
+    })().then(() => void 0).catch((err) => {
+      schemaReady2 = null;
+      throw err;
+    });
+  }
+  return schemaReady2;
+}
+var memUsers = /* @__PURE__ */ new Map();
+var memPromos = /* @__PURE__ */ new Map();
+var memTickets = /* @__PURE__ */ new Map();
+function rowToUser(r) {
+  return {
+    id: r.id,
+    email: r.email,
+    passwordHash: r.password_hash,
+    name: r.name,
+    role: r.role,
+    branch: r.branch,
+    isAdmin: Boolean(r.is_admin)
+  };
+}
+function rowToPromotion(r) {
+  return {
+    id: r.id,
+    code: r.code,
+    title: r.title,
+    description: r.description ?? "",
+    promoType: r.promo_type,
+    eligibleCategories: Array.isArray(r.eligible_categories) ? r.eligible_categories : [],
+    eligibleSkus: Array.isArray(r.eligible_skus) ? r.eligible_skus : null,
+    startsAt: toDayKey(r.starts_at),
+    endsAt: toDayKey(r.ends_at),
+    minSpend: r.min_spend == null ? null : Number(r.min_spend),
+    maxDiscount: r.max_discount == null ? null : Number(r.max_discount),
+    minTier: Array.isArray(r.min_tier) ? r.min_tier : null,
+    active: Boolean(r.active),
+    createdBy: r.created_by ?? null,
+    updatedAt: toIso(r.updated_at)
+  };
+}
+function rowToTicket(r) {
+  return {
+    id: r.id,
+    threadLineUid: r.thread_line_uid,
+    staffId: r.staff_id,
+    subject: r.subject,
+    body: r.body,
+    status: r.status || "open",
+    answer: r.answer ?? null,
+    answeredBy: r.answered_by ?? null,
+    createdAt: toIso(r.created_at),
+    answeredAt: r.answered_at ? toIso(r.answered_at) : null
+  };
+}
+function persistPromotion(p2) {
+  if (useNeon2 && sql2) {
+    return sql2`
+      INSERT INTO promotions
+        (id, code, title, description, promo_type, eligible_categories, eligible_skus,
+         starts_at, ends_at, min_spend, max_discount, min_tier, active, created_by, updated_at)
+      VALUES
+        (${p2.id}, ${p2.code}, ${p2.title}, ${p2.description}, ${p2.promoType}, ${p2.eligibleCategories},
+         ${p2.eligibleSkus}, ${new Date(dayStartMs(p2.startsAt))}, ${new Date(dayEndMs(p2.endsAt))},
+         ${p2.minSpend}, ${p2.maxDiscount}, ${p2.minTier}, ${p2.active}, ${p2.createdBy}, now())
+      ON CONFLICT (id) DO UPDATE SET
+        code = EXCLUDED.code,
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        promo_type = EXCLUDED.promo_type,
+        eligible_categories = EXCLUDED.eligible_categories,
+        eligible_skus = EXCLUDED.eligible_skus,
+        starts_at = EXCLUDED.starts_at,
+        ends_at = EXCLUDED.ends_at,
+        min_spend = EXCLUDED.min_spend,
+        max_discount = EXCLUDED.max_discount,
+        min_tier = EXCLUDED.min_tier,
+        active = EXCLUDED.active,
+        created_by = EXCLUDED.created_by,
+        updated_at = now()
+    `.then(() => void 0);
+  }
+  memPromos.set(p2.id, p2);
+  return Promise.resolve();
+}
+function persistTicket(t) {
+  if (useNeon2 && sql2) {
+    return sql2`
+      INSERT INTO tickets
+        (id, thread_line_uid, staff_id, subject, body, status, answer, answered_by, created_at, answered_at)
+      VALUES
+        (${t.id}, ${t.threadLineUid}, ${t.staffId}, ${t.subject}, ${t.body}, ${t.status},
+         ${t.answer}, ${t.answeredBy}, ${new Date(t.createdAt)}, ${t.answeredAt ? new Date(t.answeredAt) : null})
+      ON CONFLICT (id) DO UPDATE SET
+        thread_line_uid = EXCLUDED.thread_line_uid,
+        staff_id = EXCLUDED.staff_id,
+        subject = EXCLUDED.subject,
+        body = EXCLUDED.body,
+        status = EXCLUDED.status,
+        answer = EXCLUDED.answer,
+        answered_by = EXCLUDED.answered_by,
+        created_at = EXCLUDED.created_at,
+        answered_at = EXCLUDED.answered_at
+    `.then(() => void 0);
+  }
+  memTickets.set(t.id, t);
+  return Promise.resolve();
+}
+var SEED_STAFF = [
+  { id: "st-001", email: "ops.director@topsgrocery.test", name: "Krit", role: "Operations Director", branch: "Bangkok HQ", isAdmin: true },
+  { id: "st-siri", email: "siri@topsgrocery.test", name: "Siri", role: "Store Staff", branch: "Siam Square", isAdmin: false },
+  { id: "st-anan", email: "anan@topsgrocery.test", name: "Anan", role: "Produce Specialist", branch: "Siam Square", isAdmin: false },
+  { id: "st-malee", email: "malee@topsgrocery.test", name: "Malee", role: "Store Manager", branch: "Lat Phrao", isAdmin: false }
+];
+function seedPromotions() {
+  return [
+    {
+      id: "PROMO-FRESH15",
+      code: "FRESH15WED",
+      title: "15% Off Organic Vegetables",
+      description: "Royal Project & organic produce, max \u0E3F150 off. Fresh Wednesday pick.",
+      promoType: "CATEGORY_DISCOUNT_15PCT",
+      eligibleCategories: ["Fresh Produce"],
+      eligibleSkus: null,
+      startsAt: dayOffsetDate(-2),
+      endsAt: dayOffsetDate(4),
+      minSpend: 200,
+      maxDiscount: 150,
+      minTier: null,
+      active: true,
+      createdBy: "st-001",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    },
+    {
+      id: "PROMO-GOURMETPAIR",
+      code: "GOURMETPAIR",
+      title: "Gourmet Pairing: Free Japanese Sauce",
+      description: "Buy 2 cuts of premium Australian beef, get a free Kikkoman marinade (\u0E3F145).",
+      promoType: "ONE_GET_ONE_FREE",
+      eligibleCategories: ["Butcher & Seafood"],
+      eligibleSkus: ["SKU-MEAT-003"],
+      startsAt: dayOffsetDate(-1),
+      endsAt: dayOffsetDate(6),
+      minSpend: 700,
+      maxDiscount: null,
+      minTier: ["GOLD", "PLATINUM_VIP"],
+      active: true,
+      createdBy: "st-001",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    },
+    {
+      id: "PROMO-PANTRYSHIP",
+      code: "PANTRYSHIP",
+      title: "Free Express Delivery on Pantry Restock",
+      description: "Milk, eggs, rice & oil orders over \u0E3F500 ship free within the hour.",
+      promoType: "FREE_EXPRESS_DELIVERY",
+      eligibleCategories: ["Dairy & Eggs", "Pantry & Staples"],
+      eligibleSkus: null,
+      startsAt: dayOffsetDate(-5),
+      endsAt: dayOffsetDate(9),
+      minSpend: 500,
+      maxDiscount: null,
+      minTier: null,
+      active: true,
+      createdBy: "st-001",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  ];
+}
+function seedTickets() {
+  const now2 = Date.now();
+  const h = 36e5;
+  return [
+    {
+      id: "TK-SEED-001",
+      threadLineUid: "Udemo0000000000000000000000001",
+      staffId: "st-siri",
+      subject: "GOURMETPAIR at POS \u2014 how do I apply it?",
+      body: "Customer at Siam Square wants the free Kikkoman marinade with 2 cuts of Australian beef. Do I key GOURMETPAIR at POS, or is it automatic for Gold+ tiers?",
+      status: "open",
+      answer: null,
+      answeredBy: null,
+      createdAt: new Date(now2 - 2 * h).toISOString(),
+      answeredAt: null
+    },
+    {
+      id: "TK-SEED-002",
+      threadLineUid: "Udemo0000000000000000000000001",
+      staffId: "st-anan",
+      subject: "Fresh Wednesday organic veg stock",
+      body: "Royal Project broccoli is running low for the FRESH15WED push. Can HQ confirm the delivery ETA for tomorrow morning?",
+      status: "answered",
+      answer: "Confirmed \u2014 the Royal Project delivery arrives 06:30 tomorrow and stock is restocked before opening. Hold the FRESH15WED offer for walk-ins.",
+      answeredBy: "st-001",
+      createdAt: new Date(now2 - 5 * h).toISOString(),
+      answeredAt: new Date(now2 - 1 * h).toISOString()
+    }
+  ];
+}
+var seededInProcess = false;
+var seedInFlight = null;
+async function countUsers() {
+  if (useNeon2 && sql2) {
+    const rows = await sql2`SELECT count(*)::int AS c FROM staff_users`;
+    return Number(rows[0].c);
+  }
+  return memUsers.size;
+}
+async function countPromotions() {
+  if (useNeon2 && sql2) {
+    const rows = await sql2`SELECT count(*)::int AS c FROM promotions`;
+    return Number(rows[0].c);
+  }
+  return memPromos.size;
+}
+async function countTickets() {
+  if (useNeon2 && sql2) {
+    const rows = await sql2`SELECT count(*)::int AS c FROM tickets`;
+    return Number(rows[0].c);
+  }
+  return memTickets.size;
+}
+async function ensureSeeded() {
+  if (seededInProcess) return;
+  if (!seedInFlight) {
+    seedInFlight = (async () => {
+      if (useNeon2 && sql2) await ensureSchema2();
+      const firstRun = await countUsers() === 0;
+      if (firstRun) {
+        const passwordHash = await hashPassword("demo1234");
+        for (const u of SEED_STAFF) {
+          if (useNeon2 && sql2) {
+            await sql2`
+              INSERT INTO staff_users (id, email, password_hash, name, role, branch, is_admin)
+              VALUES (${u.id}, ${u.email}, ${passwordHash}, ${u.name}, ${u.role}, ${u.branch}, ${u.isAdmin})
+              ON CONFLICT (id) DO NOTHING
+            `;
+          } else {
+            memUsers.set(u.id, { ...u, passwordHash });
+          }
+        }
+      }
+      if (await countPromotions() === 0) {
+        for (const p2 of seedPromotions()) await persistPromotion(p2);
+      }
+      if (await countTickets() === 0) {
+        for (const t of seedTickets()) await persistTicket(t);
+      }
+      if (firstRun) {
+        const nonAdminIds = SEED_STAFF.filter((u) => !u.isAdmin).map((u) => u.id);
+        await inboxStore.backfillAllAttribution(nonAdminIds);
+      }
+      seededInProcess = true;
+    })().catch((err) => {
+      seedInFlight = null;
+      throw err;
+    });
+  }
+  return seedInFlight;
+}
+var adminStore = {
+  ensureSeeded,
+  /** Create all admin tables (Neon only; no-op in memory mode). */
+  ensureSchema: ensureSchema2,
+  async getUserByEmail(email) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM staff_users WHERE lower(email) = lower(${email})`;
+      return rows.length ? rowToUser(rows[0]) : null;
+    }
+    for (const u of memUsers.values()) {
+      if (u.email.toLowerCase() === email.toLowerCase()) return u;
+    }
+    return null;
+  },
+  async getUserById(id) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM staff_users WHERE id = ${id}`;
+      return rows.length ? rowToUser(rows[0]) : null;
+    }
+    return memUsers.get(id) ?? null;
+  },
+  async listUsers() {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM staff_users ORDER BY id`;
+      return rows.map(rowToUser);
+    }
+    return Array.from(memUsers.values()).sort((a2, b2) => a2.id.localeCompare(b2.id));
+  },
+  // ---- promotions ----
+  async listPromotions() {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM promotions ORDER BY id`;
+      return rows.map(rowToPromotion);
+    }
+    return Array.from(memPromos.values()).sort((a2, b2) => a2.id.localeCompare(b2.id));
+  },
+  /** Active promos whose date window contains now (public, staff-inbox read). */
+  async listActivePromotions() {
+    const now2 = Date.now();
+    return (await this.listPromotions()).filter(
+      (p2) => p2.active && dayStartMs(p2.startsAt) <= now2 && now2 <= dayEndMs(p2.endsAt)
+    );
+  },
+  async getPromotion(id) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM promotions WHERE id = ${id}`;
+      return rows.length ? rowToPromotion(rows[0]) : null;
+    }
+    return memPromos.get(id) ?? null;
+  },
+  async createPromotion(input, createdBy) {
+    const promo = {
+      id: newId("PROMO"),
+      code: input.code,
+      title: input.title,
+      description: input.description ?? "",
+      promoType: input.promoType,
+      eligibleCategories: input.eligibleCategories ?? [],
+      eligibleSkus: input.eligibleSkus ?? null,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      minSpend: input.minSpend ?? null,
+      maxDiscount: input.maxDiscount ?? null,
+      minTier: input.minTier ?? null,
+      active: input.active ?? true,
+      createdBy,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (useNeon2 && sql2) await ensureSchema2();
+    await persistPromotion(promo);
+    return promo;
+  },
+  async updatePromotion(id, patch) {
+    const current = await this.getPromotion(id);
+    if (!current) return null;
+    const next = {
+      ...current,
+      code: patch.code !== void 0 ? patch.code : current.code,
+      title: patch.title !== void 0 ? patch.title : current.title,
+      description: patch.description !== void 0 ? patch.description : current.description,
+      promoType: patch.promoType !== void 0 ? patch.promoType : current.promoType,
+      eligibleCategories: patch.eligibleCategories !== void 0 ? patch.eligibleCategories : current.eligibleCategories,
+      eligibleSkus: patch.eligibleSkus !== void 0 ? patch.eligibleSkus : current.eligibleSkus,
+      startsAt: patch.startsAt !== void 0 ? patch.startsAt : current.startsAt,
+      endsAt: patch.endsAt !== void 0 ? patch.endsAt : current.endsAt,
+      minSpend: patch.minSpend !== void 0 ? patch.minSpend : current.minSpend,
+      maxDiscount: patch.maxDiscount !== void 0 ? patch.maxDiscount : current.maxDiscount,
+      minTier: patch.minTier !== void 0 ? patch.minTier : current.minTier,
+      active: patch.active !== void 0 ? patch.active : current.active,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (useNeon2 && sql2) await ensureSchema2();
+    await persistPromotion(next);
+    return next;
+  },
+  async deletePromotion(id) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`DELETE FROM promotions WHERE id = ${id} RETURNING id`;
+      return rows.length > 0;
+    }
+    return memPromos.delete(id);
+  },
+  // ---- tickets ----
+  async listTickets(status) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = status ? await sql2`SELECT * FROM tickets WHERE status = ${status} ORDER BY created_at DESC` : await sql2`SELECT * FROM tickets ORDER BY created_at DESC`;
+      return rows.map(rowToTicket);
+    }
+    return Array.from(memTickets.values()).filter((t) => status ? t.status === status : true).sort((a2, b2) => b2.createdAt.localeCompare(a2.createdAt));
+  },
+  async listTicketsForThread(threadLineUid) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM tickets WHERE thread_line_uid = ${threadLineUid} ORDER BY created_at DESC`;
+      return rows.map(rowToTicket);
+    }
+    return Array.from(memTickets.values()).filter((t) => t.threadLineUid === threadLineUid).sort((a2, b2) => b2.createdAt.localeCompare(a2.createdAt));
+  },
+  async getTicket(id) {
+    if (useNeon2 && sql2) {
+      await ensureSchema2();
+      const rows = await sql2`SELECT * FROM tickets WHERE id = ${id}`;
+      return rows.length ? rowToTicket(rows[0]) : null;
+    }
+    return memTickets.get(id) ?? null;
+  },
+  async createTicket(input) {
+    const ticket = {
+      id: newId("TK"),
+      threadLineUid: input.threadLineUid,
+      staffId: input.staffId,
+      subject: input.subject,
+      body: input.body,
+      status: "open",
+      answer: null,
+      answeredBy: null,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      answeredAt: null
+    };
+    if (useNeon2 && sql2) await ensureSchema2();
+    await persistTicket(ticket);
+    return ticket;
+  },
+  async answerTicket(id, answer, answeredBy) {
+    const current = await this.getTicket(id);
+    if (!current) return null;
+    const next = {
+      ...current,
+      status: "answered",
+      answer,
+      answeredBy,
+      answeredAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (useNeon2 && sql2) await ensureSchema2();
+    await persistTicket(next);
+    return next;
+  },
+  async closeTicket(id) {
+    const current = await this.getTicket(id);
+    if (!current) return null;
+    const next = { ...current, status: "closed" };
+    if (useNeon2 && sql2) await ensureSchema2();
+    await persistTicket(next);
+    return next;
+  },
+  // ---- metrics (computed in JS from thread data) --------------------------------
+  async computeMetrics() {
+    await ensureSeeded();
+    const [threads, users, tickets, promos] = await Promise.all([
+      inboxStore.getAllThreads(),
+      this.listUsers(),
+      this.listTickets(),
+      this.listPromotions()
+    ]);
+    const now2 = Date.now();
+    const dayMs = 864e5;
+    const cutoff24h = now2 - dayMs;
+    const startOfToday = /* @__PURE__ */ new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayStartMs = startOfToday.getTime();
+    const frByThread = /* @__PURE__ */ new Map();
+    const allDeltas = [];
+    for (const t of threads) {
+      const fr2 = firstResponseOf(t);
+      frByThread.set(t.lineUid, fr2);
+      if (fr2) allDeltas.push(fr2.deltaMin);
+    }
+    let staffMessages24h = 0;
+    for (const t of threads) {
+      for (const m2 of t.messages) {
+        if (m2.from === "staff" && m2.ts >= cutoff24h) staffMessages24h++;
+      }
+    }
+    const kpis = {
+      totalThreads: threads.length,
+      activeThreads: threads.filter((t) => t.status === "active").length,
+      unread: threads.reduce((sum, t) => sum + (t.unread || 0), 0),
+      resolvedToday: threads.filter((t) => t.status === "done" && (t.updatedAt || 0) >= todayStartMs).length,
+      avgFirstResponseMin: avgRound(allDeltas),
+      staffMessages24h,
+      openTickets: tickets.filter((t) => t.status === "open").length
+    };
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const promoCodes = promos.map((p2) => p2.code);
+    const perStaff = users.map((u) => {
+      let messages24h = 0;
+      let promoOffers = 0;
+      for (const t of threads) {
+        for (const m2 of t.messages) {
+          if (m2.from === "staff" && m2.staffId === u.id) {
+            if (m2.ts >= cutoff24h) messages24h++;
+            if (promoCodes.some((c) => m2.text.includes(c))) promoOffers++;
+          }
+        }
+      }
+      const handled = threads.filter((t) => t.repliedBy === u.id);
+      const deltas = handled.map((t) => frByThread.get(t.lineUid)?.deltaMin ?? null).filter((d2) => d2 !== null);
+      return {
+        staffId: u.id,
+        name: u.name,
+        branch: u.branch,
+        role: u.role,
+        messages24h,
+        threadsHandled: handled.length,
+        resolved: handled.filter((t) => t.status === "done").length,
+        avgFirstResponseMin: avgRound(deltas),
+        promoOffers
+      };
+    });
+    const branchOrder = [];
+    const branchAgg = /* @__PURE__ */ new Map();
+    for (const s of perStaff) {
+      if (!branchAgg.has(s.branch)) {
+        branchAgg.set(s.branch, { threads: 0, resolved: 0, avgs: [] });
+        branchOrder.push(s.branch);
+      }
+      const b2 = branchAgg.get(s.branch);
+      b2.threads += s.threadsHandled;
+      b2.resolved += s.resolved;
+      if (s.avgFirstResponseMin !== null) b2.avgs.push(s.avgFirstResponseMin);
+    }
+    const perBranch = branchOrder.map((branch) => {
+      const b2 = branchAgg.get(branch);
+      return {
+        branch,
+        threads: b2.threads,
+        resolved: b2.resolved,
+        avgFirstResponseMin: avgRound(b2.avgs)
+      };
+    });
+    const responseTrend = [];
+    for (let i = 13; i >= 0; i--) {
+      const dayStartMs2 = todayStartMs - i * dayMs;
+      const dayEndMs2 = dayStartMs2 + dayMs;
+      let messages = 0;
+      const deltas = [];
+      for (const t of threads) {
+        for (const m2 of t.messages) {
+          if (m2.from === "staff" && m2.ts >= dayStartMs2 && m2.ts < dayEndMs2) messages++;
+        }
+        const fr2 = frByThread.get(t.lineUid);
+        if (fr2 && fr2.staffTs >= dayStartMs2 && fr2.staffTs < dayEndMs2) deltas.push(fr2.deltaMin);
+      }
+      responseTrend.push({
+        day: dayKeyOf(dayStartMs2),
+        avgFirstResponseMin: avgRound(deltas),
+        messages
+      });
+    }
+    return { kpis, perStaff, perBranch, responseTrend };
+  }
+};
+
+// server/auth.ts
+var neonUrl3 = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+var useNeon3 = Boolean(neonUrl3);
+var sql3 = useNeon3 ? cs(neonUrl3) : null;
+var isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL === "true";
+function userAttributes(u) {
+  return { email: u.email, name: u.name, role: u.role, branch: u.branch, isAdmin: u.isAdmin };
+}
+var NeonSessionAdapter = class {
+  async getSessionAndUser(sessionId) {
+    await adminStore.ensureSchema();
+    const rows = await sql3`
+      SELECT s.id, s.user_id, s.expires_at, u.email, u.name, u.role, u.branch, u.is_admin
+      FROM lucia_sessions s
+      JOIN staff_users u ON u.id = s.user_id
+      WHERE s.id = ${sessionId}
+    `;
+    if (!rows.length) return [null, null];
+    const r = rows[0];
+    return [
+      { id: r.id, userId: r.user_id, expiresAt: r.expires_at, attributes: {} },
+      {
+        id: r.user_id,
+        attributes: {
+          email: r.email,
+          name: r.name,
+          role: r.role,
+          branch: r.branch,
+          isAdmin: Boolean(r.is_admin)
+        }
+      }
+    ];
+  }
+  async getUserSessions(userId) {
+    await adminStore.ensureSchema();
+    const rows = await sql3`SELECT id, user_id, expires_at FROM lucia_sessions WHERE user_id = ${userId}`;
+    return rows.map((r) => ({ id: r.id, userId: r.user_id, expiresAt: r.expires_at, attributes: {} }));
+  }
+  async setSession(session) {
+    await adminStore.ensureSchema();
+    await sql3`
+      INSERT INTO lucia_sessions (id, user_id, expires_at)
+      VALUES (${session.id}, ${session.userId}, ${session.expiresAt})
+      ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, expires_at = EXCLUDED.expires_at
+    `;
+  }
+  async updateSessionExpiration(sessionId, expiresAt) {
+    await adminStore.ensureSchema();
+    await sql3`UPDATE lucia_sessions SET expires_at = ${expiresAt} WHERE id = ${sessionId}`;
+  }
+  async deleteSession(sessionId) {
+    await adminStore.ensureSchema();
+    await sql3`DELETE FROM lucia_sessions WHERE id = ${sessionId}`;
+  }
+  async deleteUserSessions(userId) {
+    await adminStore.ensureSchema();
+    await sql3`DELETE FROM lucia_sessions WHERE user_id = ${userId}`;
+  }
+  async deleteExpiredSessions() {
+    await adminStore.ensureSchema();
+    await sql3`DELETE FROM lucia_sessions WHERE expires_at < now()`;
+  }
+};
+var MemorySessionAdapter = class {
+  constructor() {
+    this.sessions = /* @__PURE__ */ new Map();
+  }
+  async getSessionAndUser(sessionId) {
+    const session = this.sessions.get(sessionId) ?? null;
+    if (!session) return [null, null];
+    const user = await adminStore.getUserById(session.userId);
+    if (!user) return [session, null];
+    return [session, { id: user.id, attributes: userAttributes(user) }];
+  }
+  async getUserSessions(userId) {
+    return Array.from(this.sessions.values()).filter((s) => s.userId === userId);
+  }
+  async setSession(session) {
+    this.sessions.set(session.id, session);
+  }
+  async updateSessionExpiration(sessionId, expiresAt) {
+    const s = this.sessions.get(sessionId);
+    if (s) s.expiresAt = expiresAt;
+  }
+  async deleteSession(sessionId) {
+    this.sessions.delete(sessionId);
+  }
+  async deleteUserSessions(userId) {
+    for (const [id, s] of this.sessions) {
+      if (s.userId === userId) this.sessions.delete(id);
+    }
+  }
+  async deleteExpiredSessions() {
+    const now2 = /* @__PURE__ */ new Date();
+    for (const [id, s] of this.sessions) {
+      if (s.expiresAt < now2) this.sessions.delete(id);
+    }
+  }
+};
+var adapter = useNeon3 && sql3 ? new NeonSessionAdapter() : new MemorySessionAdapter();
+var lucia = new Lucia(adapter, {
+  sessionExpiresIn: new TimeSpan(7, "d"),
+  sessionCookie: {
+    name: "tops_session",
+    attributes: {
+      path: "/",
+      sameSite: "lax",
+      secure: isProduction
+    }
+  }
+});
+function toPublicUser(u) {
+  return { id: u.id, email: u.email, name: u.name, role: u.role, branch: u.branch, isAdmin: u.isAdmin };
+}
+function setSessionCookie(res, sessionId) {
+  const cookie = lucia.createSessionCookie(sessionId);
+  res.cookie(cookie.name, cookie.value, cookie.attributes);
+}
+function clearSessionCookie(res) {
+  const cookie = lucia.createBlankSessionCookie();
+  res.cookie(cookie.name, cookie.value, cookie.attributes);
+}
+async function currentUser(req) {
+  const sessionId = lucia.readSessionCookie(req.headers.cookie || "");
+  if (!sessionId) return null;
+  const { user } = await lucia.validateSession(sessionId);
+  if (!user) return null;
+  return adminStore.getUserById(user.id);
+}
+async function requireAdmin(req, res, next) {
+  try {
+    const user = await currentUser(req);
+    if (!user) {
+      res.status(401).json({ error: "unauthorized" });
+      return;
+    }
+    if (!user.isAdmin) {
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+async function handleLogin(req, res, adminOnly) {
+  const { email, password } = req.body || {};
+  if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+    res.status(400).json({ error: "email and password are required" });
+    return;
+  }
+  await adminStore.ensureSeeded();
+  const user = await adminStore.getUserByEmail(email.trim());
+  if (!user || !await verifyPassword(user.passwordHash, password)) {
+    res.status(401).json({ error: "Invalid email or password" });
+    return;
+  }
+  if (adminOnly && !user.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+  const session = await lucia.createSession(user.id, {});
+  setSessionCookie(res, session.id);
+  res.json({ user: toPublicUser(user) });
+}
+function registerAuthRoutes(app) {
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      await handleLogin(req, res, true);
+    } catch (err) {
+      res.status(500).json({ error: "login failed", message: err?.message });
+    }
+  });
+  app.post("/api/staff/login", async (req, res) => {
+    try {
+      await handleLogin(req, res, false);
+    } catch (err) {
+      res.status(500).json({ error: "login failed", message: err?.message });
+    }
+  });
+  async function handleLogout(req, res) {
+    const sessionId = lucia.readSessionCookie(req.headers.cookie || "");
+    if (sessionId) {
+      await lucia.invalidateSession(sessionId);
+    }
+    clearSessionCookie(res);
+    res.json({ success: true });
+  }
+  app.post("/api/admin/logout", async (req, res) => {
+    try {
+      await handleLogout(req, res);
+    } catch (err) {
+      res.status(500).json({ error: "logout failed", message: err?.message });
+    }
+  });
+  app.post("/api/staff/logout", async (req, res) => {
+    try {
+      await handleLogout(req, res);
+    } catch (err) {
+      res.status(500).json({ error: "logout failed", message: err?.message });
+    }
+  });
+  app.get("/api/admin/me", requireAdmin, (req, res) => {
+    res.json({ user: toPublicUser(req.user) });
+  });
+  app.get("/api/staff/me", async (req, res) => {
+    try {
+      const user = await currentUser(req);
+      if (!user) {
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+      res.json({ user: toPublicUser(user) });
+    } catch (err) {
+      res.status(500).json({ error: "failed to read session", message: err?.message });
+    }
+  });
+}
+
+// server/adminApi.ts
+var DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+function isValidDay(v2) {
+  return typeof v2 === "string" && DAY_RE.test(v2) && !Number.isNaN(Date.parse(`${v2}T00:00:00Z`));
+}
+function registerAdminApi(app) {
+  app.get("/api/inbox/promotions", async (_req, res) => {
+    try {
+      await adminStore.ensureSeeded();
+      const data = await adminStore.listActivePromotions();
+      res.json({ data, total: data.length });
+    } catch (err) {
+      res.status(500).json({ error: "failed to list promotions", message: err?.message });
+    }
+  });
+  app.get("/api/admin/metrics", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await adminStore.computeMetrics());
+    } catch (err) {
+      res.status(500).json({ error: "failed to compute metrics", message: err?.message });
+    }
+  });
+  app.get("/api/admin/promotions", requireAdmin, async (_req, res) => {
+    try {
+      const data = await adminStore.listPromotions();
+      res.json({ data, total: data.length });
+    } catch (err) {
+      res.status(500).json({ error: "failed to list promotions", message: err?.message });
+    }
+  });
+  app.post("/api/admin/promotions", requireAdmin, async (req, res) => {
+    try {
+      const b2 = req.body || {};
+      const missing = ["code", "title", "promoType", "startsAt", "endsAt"].filter(
+        (k) => typeof b2[k] !== "string" || !b2[k].trim()
+      );
+      if (missing.length) {
+        res.status(400).json({ error: `missing or invalid fields: ${missing.join(", ")}` });
+        return;
+      }
+      if (!isValidDay(b2.startsAt) || !isValidDay(b2.endsAt)) {
+        res.status(400).json({ error: "startsAt and endsAt must be YYYY-MM-DD dates" });
+        return;
+      }
+      const input = {
+        code: String(b2.code).trim(),
+        title: String(b2.title).trim(),
+        description: typeof b2.description === "string" ? b2.description : "",
+        promoType: String(b2.promoType).trim(),
+        eligibleCategories: Array.isArray(b2.eligibleCategories) ? b2.eligibleCategories.map(String) : [],
+        eligibleSkus: Array.isArray(b2.eligibleSkus) ? b2.eligibleSkus.map(String) : null,
+        startsAt: String(b2.startsAt).trim(),
+        endsAt: String(b2.endsAt).trim(),
+        minSpend: typeof b2.minSpend === "number" && Number.isFinite(b2.minSpend) ? b2.minSpend : null,
+        maxDiscount: typeof b2.maxDiscount === "number" && Number.isFinite(b2.maxDiscount) ? b2.maxDiscount : null,
+        minTier: Array.isArray(b2.minTier) ? b2.minTier.map(String) : null,
+        active: typeof b2.active === "boolean" ? b2.active : true
+      };
+      const promo = await adminStore.createPromotion(input, req.user.id);
+      res.status(201).json({ success: true, data: promo });
+    } catch (err) {
+      res.status(500).json({ error: "failed to create promotion", message: err?.message });
+    }
+  });
+  app.patch("/api/admin/promotions/:id", requireAdmin, async (req, res) => {
+    try {
+      const b2 = req.body || {};
+      if (Object.keys(b2).length === 0) {
+        res.status(400).json({ error: "no fields to update" });
+        return;
+      }
+      if (b2.startsAt !== void 0 && !isValidDay(b2.startsAt) || b2.endsAt !== void 0 && !isValidDay(b2.endsAt)) {
+        res.status(400).json({ error: "startsAt and endsAt must be YYYY-MM-DD dates" });
+        return;
+      }
+      const patch = {};
+      if (b2.code !== void 0) patch.code = String(b2.code).trim();
+      if (b2.title !== void 0) patch.title = String(b2.title).trim();
+      if (b2.description !== void 0) patch.description = String(b2.description);
+      if (b2.promoType !== void 0) patch.promoType = String(b2.promoType).trim();
+      if (b2.eligibleCategories !== void 0) {
+        patch.eligibleCategories = Array.isArray(b2.eligibleCategories) ? b2.eligibleCategories.map(String) : [];
+      }
+      if (b2.eligibleSkus !== void 0) {
+        patch.eligibleSkus = Array.isArray(b2.eligibleSkus) ? b2.eligibleSkus.map(String) : null;
+      }
+      if (b2.startsAt !== void 0) patch.startsAt = String(b2.startsAt).trim();
+      if (b2.endsAt !== void 0) patch.endsAt = String(b2.endsAt).trim();
+      if (b2.minSpend !== void 0) patch.minSpend = typeof b2.minSpend === "number" ? b2.minSpend : null;
+      if (b2.maxDiscount !== void 0) patch.maxDiscount = typeof b2.maxDiscount === "number" ? b2.maxDiscount : null;
+      if (b2.minTier !== void 0) patch.minTier = Array.isArray(b2.minTier) ? b2.minTier.map(String) : null;
+      if (b2.active !== void 0) patch.active = Boolean(b2.active);
+      const updated = await adminStore.updatePromotion(String(req.params.id), patch);
+      if (!updated) {
+        res.status(404).json({ error: "Promotion not found" });
+        return;
+      }
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      res.status(500).json({ error: "failed to update promotion", message: err?.message });
+    }
+  });
+  app.delete("/api/admin/promotions/:id", requireAdmin, async (req, res) => {
+    try {
+      const deleted = await adminStore.deletePromotion(String(req.params.id));
+      if (!deleted) {
+        res.status(404).json({ error: "Promotion not found" });
+        return;
+      }
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "failed to delete promotion", message: err?.message });
+    }
+  });
+  app.get("/api/admin/tickets", requireAdmin, async (req, res) => {
+    try {
+      const q = req.query.status;
+      const status = typeof q === "string" && ["open", "answered", "closed"].includes(q) ? q : void 0;
+      const [tickets, users] = await Promise.all([adminStore.listTickets(status), adminStore.listUsers()]);
+      const byId = new Map(users.map((u) => [u.id, u]));
+      const data = tickets.map((t) => ({
+        ...t,
+        staffName: byId.get(t.staffId)?.name ?? null,
+        staffBranch: byId.get(t.staffId)?.branch ?? null
+      }));
+      res.json({ data, total: data.length });
+    } catch (err) {
+      res.status(500).json({ error: "failed to list tickets", message: err?.message });
+    }
+  });
+  app.post("/api/admin/tickets/:id/answer", requireAdmin, async (req, res) => {
+    try {
+      const { answer } = req.body || {};
+      if (typeof answer !== "string" || !answer.trim()) {
+        res.status(400).json({ error: "answer is required" });
+        return;
+      }
+      const updated = await adminStore.answerTicket(String(req.params.id), answer.trim(), req.user.id);
+      if (!updated) {
+        res.status(404).json({ error: "Ticket not found" });
+        return;
+      }
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      res.status(500).json({ error: "failed to answer ticket", message: err?.message });
+    }
+  });
+  app.post("/api/admin/tickets/:id/close", requireAdmin, async (req, res) => {
+    try {
+      const updated = await adminStore.closeTicket(String(req.params.id));
+      if (!updated) {
+        res.status(404).json({ error: "Ticket not found" });
+        return;
+      }
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      res.status(500).json({ error: "failed to close ticket", message: err?.message });
+    }
+  });
+}
+
 // src/services/priorityEngine.ts
 var RISKY_SEGMENTS = /* @__PURE__ */ new Set(["At Risk", "Need Attention"]);
 function computeThreadPriority(input) {
-  const now = input.now ?? Date.now();
+  const now2 = input.now ?? Date.now();
   const ltvScore = input.ltv ? Math.min(40, Math.round(input.ltv / 1500)) : 0;
   const riskScore = input.segment && RISKY_SEGMENTS.has(input.segment) ? 30 : 0;
-  const ageDays = input.lastTs > 0 ? (now - input.lastTs) / 864e5 : Infinity;
+  const ageDays = input.lastTs > 0 ? (now2 - input.lastTs) / 864e5 : Infinity;
   const recencyScore = ageDays <= 7 ? 30 : ageDays <= 14 ? 20 : ageDays <= 30 ? 10 : 5;
   const flags = [];
   if (input.ltv !== void 0 && input.ltv >= 3e4 || input.tier === "PLATINUM_VIP" || input.tier === "GOLD") {
@@ -30437,6 +32347,8 @@ function createApp() {
     }
   }));
   const envState = (v2) => v2 === void 0 ? "missing" : v2 === "" ? "empty" : "set";
+  registerAuthRoutes(app);
+  registerAdminApi(app);
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
@@ -30587,6 +32499,7 @@ function createApp() {
           isLineFriend: thread.isLineFriend,
           messages: thread.messages,
           unread: 0,
+          repliedBy: thread.repliedBy ?? null,
           customer
         }
       });
@@ -30595,11 +32508,21 @@ function createApp() {
     }
   });
   app.post("/api/inbox/threads/:lineUid/reply", async (req, res) => {
-    const { text } = req.body || {};
+    const { text, staffId } = req.body || {};
     if (!text || typeof text !== "string" || !text.trim()) {
       return res.status(400).json({ error: "text is required" });
     }
     const lineUid = String(req.params.lineUid);
+    let attributedStaffId;
+    if (typeof staffId === "string" && staffId.trim()) {
+      attributedStaffId = staffId.trim();
+    } else {
+      try {
+        const user = await currentUser(req);
+        if (user) attributedStaffId = user.id;
+      } catch {
+      }
+    }
     const channelToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     let realLineSuccess = false;
     let lineApiResponse = null;
@@ -30623,7 +32546,7 @@ function createApp() {
       }
     }
     try {
-      await inboxStore.appendStaffMessage(lineUid, text.trim());
+      await inboxStore.appendStaffMessage(lineUid, text.trim(), attributedStaffId);
     } catch (err) {
       console.error("Error recording staff reply in thread:", err?.message);
     }
@@ -30633,6 +32556,66 @@ function createApp() {
       realLineSuccess,
       lineApiResponse
     });
+  });
+  app.post("/api/inbox/threads/:lineUid/ticket", async (req, res) => {
+    const { subject, body, staffId } = req.body || {};
+    if (typeof subject !== "string" || !subject.trim()) {
+      return res.status(400).json({ error: "subject is required" });
+    }
+    if (typeof body !== "string" || !body.trim()) {
+      return res.status(400).json({ error: "body is required" });
+    }
+    const lineUid = String(req.params.lineUid);
+    let attributedStaffId;
+    try {
+      const user = await currentUser(req);
+      if (user) attributedStaffId = user.id;
+    } catch {
+    }
+    if (!attributedStaffId && typeof staffId === "string" && staffId.trim()) {
+      attributedStaffId = staffId.trim();
+    }
+    if (!attributedStaffId) {
+      return res.status(400).json({ error: "staffId is required (or log in as staff)" });
+    }
+    try {
+      const ticket = await adminStore.createTicket({
+        threadLineUid: lineUid,
+        staffId: attributedStaffId,
+        subject: subject.trim(),
+        body: body.trim()
+      });
+      res.status(201).json({ success: true, data: ticket });
+    } catch (err) {
+      res.status(500).json({ error: "failed to create ticket", message: err?.message });
+    }
+  });
+  app.get("/api/inbox/threads/:lineUid/tickets", async (req, res) => {
+    const lineUid = String(req.params.lineUid);
+    try {
+      const data = await adminStore.listTicketsForThread(lineUid);
+      res.json({ data, total: data.length });
+    } catch (err) {
+      res.status(500).json({ error: "failed to list tickets", message: err?.message });
+    }
+  });
+  app.post("/api/inbox/threads/:lineUid/status", async (req, res) => {
+    const { status, snoozeUntil } = req.body || {};
+    if (!["active", "snoozed", "done"].includes(status)) {
+      return res.status(400).json({ error: "status must be active, snoozed, or done" });
+    }
+    const lineUid = String(req.params.lineUid);
+    try {
+      const thread = await inboxStore.setStatus(
+        lineUid,
+        status,
+        typeof snoozeUntil === "number" ? snoozeUntil : 0
+      );
+      if (!thread) return res.status(404).json({ error: "Thread not found" });
+      res.json({ success: true, status: thread.status, snoozeUntil: thread.snoozeUntil });
+    } catch (err) {
+      res.status(500).json({ error: "failed to update thread status", message: err?.message });
+    }
   });
   app.post("/api/inbox/threads/:lineUid/link", async (req, res) => {
     const { crmCustomerId } = req.body || {};
